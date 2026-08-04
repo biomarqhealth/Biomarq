@@ -343,6 +343,9 @@
     </div>
 
     <button class="btn btn-primary" id="get-started-btn" style="padding:14px 32px;font-size:15px;">Get started</button>
+    <div style="margin-top:14px;">
+      <a href="performance/" class="btn btn-ghost" style="padding:12px 28px;font-size:14px;text-decoration:none;display:inline-block;">Looking for the athlete/performance version? →</a>
+    </div>
     <div class="home-disclaimer">Not a diagnostic tool. Always talk to a doctor about your results.</div>
   </div>
 </div>
@@ -617,6 +620,39 @@
             <label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="fh-heart"> Heart disease (first-degree relative)</label>
             <label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="fh-diabetes"> Type 2 diabetes (first-degree relative)</label>
           </div>
+        </details>
+
+        <details style="margin-top:20px;border-top:1px solid var(--line);padding-top:16px;">
+          <summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--pine-dark);">+ Athlete mode (optional add-on)</summary>
+          <div class="field-note" style="margin:10px 0 14px;">Markers that matter most for training load, recovery, and performance. Optional — fill in what you have. These don't change your biomarker score or biological age; they power the Athlete performance card in your results with specific training and recovery guidance.</div>
+          <button type="button" class="btn btn-ghost btn-sm" id="find-athlete-testing-btn" style="margin-bottom:14px;">Where can I get these tested?</button>
+          <div class="form-grid">
+            <div class="field">
+              <label>Hemoglobin (g/dL)</label>
+              <input type="number" step="0.1" id="bio-hemoglobin" placeholder="e.g. 14.5">
+            </div>
+            <div class="field">
+              <label>Ferritin (ng/mL)</label>
+              <input type="number" step="1" id="bio-ferritin" placeholder="e.g. 60">
+            </div>
+            <div class="field">
+              <label>Creatine kinase / CK (U/L)</label>
+              <input type="number" step="1" id="bio-ck" placeholder="e.g. 180">
+            </div>
+            <div class="field">
+              <label>Testosterone, total (ng/dL)</label>
+              <input type="number" step="1" id="bio-testosterone" placeholder="e.g. 550">
+            </div>
+            <div class="field">
+              <label>Cortisol, morning (µg/dL)</label>
+              <input type="number" step="0.1" id="bio-cortisol" placeholder="e.g. 14">
+            </div>
+            <div class="field full">
+              <label>TSH (mIU/L)</label>
+              <input type="number" step="0.01" id="bio-tsh" placeholder="e.g. 1.8">
+            </div>
+          </div>
+          <div class="field-note" style="margin-top:10px;">Draw these fasted, in the morning (7–9am), and ideally 24–48 hours after your last hard session — training the day before skews CK, cortisol, and testosterone and makes it hard to trust the trend.</div>
         </details>
 
         <div class="field-note" style="margin-top:16px;">Leave any field blank if you don't have that value yet. The score adjusts to what you provide. Your info saves automatically as you move to the next step.</div>
@@ -914,6 +950,25 @@
     </div>
 
     <div class="section">
+      <details class="collapsible" open>
+        <summary>
+          <div class="collapsible-summary-text">
+            <h3>Athlete performance</h3>
+            <span class="hint">Training and recovery guidance from your markers</span>
+          </div>
+          <svg class="collapsible-chevron" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </summary>
+        <div class="collapsible-body">
+          <div id="athlete-performance-empty" class="empty-state">
+            <div class="display">No athlete markers logged yet</div>
+            Log hemoglobin, ferritin, CK, testosterone, cortisol, or TSH under "+ Athlete mode" on the biomarkers step to get specific training and recovery guidance here.
+          </div>
+          <div id="athlete-performance-list"></div>
+        </div>
+      </details>
+    </div>
+
+    <div class="section">
       <details class="collapsible" id="trend-details">
         <summary>
           <div class="collapsible-summary-text">
@@ -1009,6 +1064,206 @@
       <div></div>
     </div>
   </div>
+  </div>
+
+  <!-- ATHLETE PERFORMANCE MODE (standalone page, outside the main wizard flow) -->
+  <div class="wizard-step hidden" id="step-athlete" style="max-width:820px;">
+    <div class="section-head">
+      <h3>Athlete performance mode</h3>
+      <span class="hint">Only the bloodwork and nutrition that move the needle for training</span>
+    </div>
+    <button type="button" class="btn btn-ghost btn-sm" id="athlete-exit-btn" style="margin-bottom:20px;">← Back to full tracker</button>
+
+    <!-- Performance bloodwork -->
+    <div class="section">
+      <div class="section-head"><h3 style="font-size:17px;">Performance bloodwork</h3></div>
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
+          <div>
+            <div class="display" style="font-size:15px;margin-bottom:2px;">Need these tested?</div>
+            <div style="font-size:13px;color:var(--sage);">Hemoglobin, ferritin, CK, testosterone, cortisol, TSH.</div>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" id="ath-find-testing-btn">Where can I get these tested?</button>
+        </div>
+      </div>
+      <div class="card">
+        <form id="ath-bio-form">
+          <div class="form-grid">
+            <div class="field full">
+              <label>Date</label>
+              <input type="date" id="ath-bio-date" required>
+            </div>
+            <div class="field">
+              <label>Hemoglobin (g/dL)</label>
+              <input type="number" step="0.1" id="ath-bio-hemoglobin" placeholder="e.g. 14.5">
+            </div>
+            <div class="field">
+              <label>Ferritin (ng/mL)</label>
+              <input type="number" step="1" id="ath-bio-ferritin" placeholder="e.g. 60">
+            </div>
+            <div class="field">
+              <label>Creatine kinase / CK (U/L)</label>
+              <input type="number" step="1" id="ath-bio-ck" placeholder="e.g. 180">
+            </div>
+            <div class="field">
+              <label>Testosterone, total (ng/dL)</label>
+              <input type="number" step="1" id="ath-bio-testosterone" placeholder="e.g. 550">
+            </div>
+            <div class="field">
+              <label>Cortisol, morning (µg/dL)</label>
+              <input type="number" step="0.1" id="ath-bio-cortisol" placeholder="e.g. 14">
+            </div>
+            <div class="field full">
+              <label>TSH (mIU/L)</label>
+              <input type="number" step="0.01" id="ath-bio-tsh" placeholder="e.g. 1.8">
+            </div>
+          </div>
+          <div class="field-note" style="margin:10px 0 14px;">Draw fasted, 7–9am, and 24–48 hours after your last hard session for a trend you can actually trust.</div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save bloodwork</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Athlete food log -->
+    <div class="section">
+      <div class="section-head"><h3 style="font-size:17px;">Athlete food log</h3></div>
+      <div class="card">
+        <div class="form-grid" style="margin-bottom:16px;">
+          <div class="field">
+            <label>Sport</label>
+            <select id="ath-sport">
+              <option value="running">Running / track &amp; field</option>
+              <option value="swimming">Swimming</option>
+              <option value="cycling">Cycling</option>
+              <option value="triathlon">Triathlon</option>
+              <option value="soccer">Soccer</option>
+              <option value="basketball">Basketball</option>
+              <option value="football">American football</option>
+              <option value="baseball">Baseball / softball</option>
+              <option value="hockey">Hockey</option>
+              <option value="volleyball">Volleyball</option>
+              <option value="tennis">Tennis</option>
+              <option value="golf">Golf</option>
+              <option value="gymnastics">Gymnastics / diving</option>
+              <option value="weightlifting">Weightlifting / powerlifting</option>
+              <option value="crossfit">CrossFit / functional fitness</option>
+              <option value="combat">Combat sports (boxing, wrestling, MMA, judo)</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Training load</label>
+            <select id="ath-sessions-per-day">
+              <option value="1">1 session/day</option>
+              <option value="2">2 sessions/day (doubles)</option>
+              <option value="3">3+ sessions/day or training camp</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-note" id="ath-goal-mode-label" style="margin-bottom:12px;"></div>
+        <div class="macro-bar" id="ath-macro-goal-bar">
+          <div class="macro-box">
+            <div class="macro-val" id="ath-total-cal">0</div>
+            <div class="macro-label">Calories</div>
+            <div class="goal-track"><div class="goal-fill" id="ath-fill-cal"></div></div>
+            <div class="goal-target" id="ath-target-cal"></div>
+          </div>
+          <div class="macro-box">
+            <div class="macro-val" id="ath-total-protein">0g</div>
+            <div class="macro-label">Protein</div>
+            <div class="goal-track"><div class="goal-fill" id="ath-fill-protein"></div></div>
+            <div class="goal-target" id="ath-target-protein"></div>
+          </div>
+          <div class="macro-box">
+            <div class="macro-val" id="ath-total-carbs">0g</div>
+            <div class="macro-label">Carbs</div>
+            <div class="goal-track"><div class="goal-fill" id="ath-fill-carbs"></div></div>
+            <div class="goal-target" id="ath-target-carbs"></div>
+          </div>
+          <div class="macro-box">
+            <div class="macro-val" id="ath-total-fat">0g</div>
+            <div class="macro-label">Fat</div>
+            <div class="goal-track"><div class="goal-fill" id="ath-fill-fat"></div></div>
+            <div class="goal-target" id="ath-target-fat"></div>
+          </div>
+        </div>
+        <div class="field-note hidden" id="ath-no-profile-note" style="margin-bottom:16px;">Fill in your profile (weight, height, age, sex) under the main tracker to see personalized athlete targets instead of just totals.</div>
+
+        <form id="ath-food-form">
+          <div class="form-grid" style="margin-bottom:14px;">
+            <div class="field full" style="margin-bottom:0;">
+              <label>Date</label>
+              <input type="date" id="ath-food-date" required>
+            </div>
+          </div>
+          <div class="field" style="margin-bottom:10px;position:relative;">
+            <label>Food / meal item</label>
+            <div style="display:flex;gap:8px;">
+              <input type="text" id="ath-food-name" placeholder="e.g. grilled chicken breast" required autocomplete="off" style="flex:1;">
+              <button type="button" class="btn btn-ghost btn-sm" id="ath-food-search-btn">Look up</button>
+            </div>
+            <div id="ath-food-search-results" class="hidden" style="position:relative;margin-top:6px;border:1px solid var(--line);border-radius:8px;background:#fff;max-height:220px;overflow-y:auto;"></div>
+            <div class="field-note" id="ath-food-source-note"></div>
+          </div>
+          <div class="form-grid-5">
+            <div class="field" style="margin-bottom:0;">
+              <label>Meal</label>
+              <select id="ath-food-meal">
+                <option value="breakfast">Breakfast</option>
+                <option value="lunch">Lunch</option>
+                <option value="dinner">Dinner</option>
+                <option value="snack">Snack</option>
+              </select>
+            </div>
+            <div class="field" style="margin-bottom:0;">
+              <label>Serving (g)</label>
+              <input type="number" step="1" id="ath-food-grams" value="100">
+            </div>
+            <div class="field" style="margin-bottom:0;">
+              <label>Calories</label>
+              <input type="number" step="1" id="ath-food-cal" placeholder="e.g. 450">
+            </div>
+            <div class="field" style="margin-bottom:0;">
+              <label>Protein (g)</label>
+              <input type="number" step="1" id="ath-food-protein" placeholder="e.g. 35">
+            </div>
+            <div class="field" style="margin-bottom:0;">
+              <label>Carbs (g) / Fat (g)</label>
+              <div style="display:flex;gap:8px;">
+                <input type="number" step="1" id="ath-food-carbs" placeholder="Carbs">
+                <input type="number" step="1" id="ath-food-fat" placeholder="Fat">
+              </div>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Add to journal</button>
+          </div>
+        </form>
+        <div id="ath-food-entries" style="margin-top:18px;"></div>
+        <div id="ath-food-empty" class="empty-state hidden">
+          <div class="display">Nothing logged yet today</div>
+          Add an item above and watch it against your training-day targets.
+        </div>
+      </div>
+    </div>
+
+    <!-- Performance recommendations -->
+    <div class="section">
+      <div class="section-head"><h3 style="font-size:17px;">Performance recommendations</h3></div>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="display" style="font-size:15px;margin-bottom:8px;">Pro-level essentials</div>
+        <div id="ath-essentials-list" style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--sage);"></div>
+      </div>
+      <div class="card">
+        <div id="ath-recommendations-empty" class="empty-state">
+          <div class="display">Nothing to show yet</div>
+          Log at least one bloodwork value above, or a meal, and specific guidance shows up here.
+        </div>
+        <div id="ath-recommendations-list"></div>
+      </div>
+    </div>
   </div>
 
   <footer>Biomarq — reference ranges informed by CDC, AHA, and ATP III clinical guidelines. Not medical advice.</footer>
@@ -1264,6 +1519,7 @@ document.getElementById('logout-btn').addEventListener('click', async ()=>{
 });
 
 /* ============ INIT APP AFTER LOGIN ============ */
+let pendingAthleteMode = false;
 async function initApp(user){
   currentUser = user;
   document.getElementById('home-screen').classList.add('hidden');
@@ -1273,8 +1529,15 @@ async function initApp(user){
   document.getElementById('bio-date').value = todayStr();
   document.getElementById('habit-date').value = todayStr();
   document.getElementById('food-date').value = todayStr();
+  document.getElementById('ath-bio-date').value = todayStr();
+  document.getElementById('ath-food-date').value = todayStr();
   await loadProfile();
-  showStep('profile');
+  if(pendingAthleteMode){
+    pendingAthleteMode = false;
+    showStep('athlete');
+  } else {
+    showStep('profile');
+  }
 }
 
 /* ============ WIZARD NAVIGATION ============ */
@@ -1295,6 +1558,7 @@ function showStep(name){
   document.querySelectorAll('.wizard-step').forEach(el => el.classList.add('hidden'));
   document.getElementById('step-' + name).classList.remove('hidden');
   currentStepName = name;
+  document.getElementById('step-indicator').classList.toggle('hidden', name === 'athlete');
   updateStepIndicator(name);
   window.scrollTo({top:0, behavior:'smooth'});
   if(currentUser) refreshAndRender(name);
@@ -1574,6 +1838,30 @@ document.getElementById('find-genetic-testing-btn').addEventListener('click', fu
   `);
 });
 
+document.getElementById('find-athlete-testing-btn').addEventListener('click', function(){
+  toggleInfoPanel(this, 'athlete-testing-panel', `
+    <div class="field-note" style="margin-bottom:10px;">Hemoglobin, ferritin, and CK are part of a standard CBC + iron panel — any lab can run these with a doctor's order or a direct-access order:</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+      <a href="https://www.questdiagnostics.com/patients/patient-test-prep/locations" target="_blank" rel="noopener" style="color:var(--pine-dark);font-weight:600;font-size:13px;">Quest Diagnostics — find a location →</a>
+      <a href="https://www.labcorp.com/labs-and-appointments" target="_blank" rel="noopener" style="color:var(--pine-dark);font-weight:600;font-size:13px;">Labcorp — find a location →</a>
+      <a href="https://www.walkinlab.com/" target="_blank" rel="noopener" style="color:var(--pine-dark);font-weight:600;font-size:13px;">Walk-In Lab — order testosterone, cortisol, TSH, ferritin, CK without a doctor's visit →</a>
+    </div>
+    <div class="field-note" style="margin-bottom:10px;">Testosterone and cortisol are most comparable draw-to-draw when done fasted, 7–9am, 24–48 hours after your last hard session.</div>
+  `);
+});
+
+document.getElementById('ath-find-testing-btn').addEventListener('click', function(){
+  toggleInfoPanel(this, 'ath-testing-panel', `
+    <div class="field-note" style="margin-bottom:10px;">Hemoglobin, ferritin, and CK are part of a standard CBC + iron panel — any lab can run these with a doctor's order or a direct-access order:</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+      <a href="https://www.questdiagnostics.com/patients/patient-test-prep/locations" target="_blank" rel="noopener" style="color:var(--pine-dark);font-weight:600;font-size:13px;">Quest Diagnostics — find a location →</a>
+      <a href="https://www.labcorp.com/labs-and-appointments" target="_blank" rel="noopener" style="color:var(--pine-dark);font-weight:600;font-size:13px;">Labcorp — find a location →</a>
+      <a href="https://www.walkinlab.com/" target="_blank" rel="noopener" style="color:var(--pine-dark);font-weight:600;font-size:13px;">Walk-In Lab — order testosterone, cortisol, TSH, ferritin, CK without a doctor's visit →</a>
+    </div>
+    <div class="field-note" style="margin-bottom:10px;">Testosterone and cortisol are most comparable draw-to-draw when done fasted, 7–9am, 24–48 hours after your last hard session.</div>
+  `);
+});
+
 // Manually handle OAuth/magic-link redirects that land with a token in the
 // URL hash. We do this ourselves instead of relying only on Supabase's
 // automatic session detection, since that can silently fail to pick up
@@ -1679,6 +1967,12 @@ async function saveBiomarkers(){
     ca199: val('bio-ca199'),
     afp: val('bio-afp'),
     mcd_result: document.getElementById('bio-mcd').value || null,
+    hemoglobin: val('bio-hemoglobin'),
+    ferritin: val('bio-ferritin'),
+    ck: val('bio-ck'),
+    testosterone: val('bio-testosterone'),
+    cortisol: val('bio-cortisol'),
+    tsh: val('bio-tsh'),
   };
 
   // Only touch the biomarkers table if something was actually entered —
@@ -1715,6 +2009,37 @@ async function saveBiomarkers(){
   await refreshAndRender(currentStepName);
 }
 document.getElementById('biomarker-form').addEventListener('submit', e => e.preventDefault());
+
+/* ============ ATHLETE MODE: standalone bloodwork save ============ */
+// Writes into the same `biomarkers` table/row as the main tracker, but only
+// touches the athlete-specific columns — a partial update leaves whatever
+// glucose/lipid/etc. values already exist for that date untouched.
+async function saveAthleteBiomarkers(){
+  const val = id => { const v = document.getElementById(id).value; return v === '' ? null : parseFloat(v); };
+  const date = document.getElementById('ath-bio-date').value;
+  if(!date){ showToast('Pick a date first'); return; }
+  const fields = {
+    hemoglobin: val('ath-bio-hemoglobin'),
+    ferritin: val('ath-bio-ferritin'),
+    ck: val('ath-bio-ck'),
+    testosterone: val('ath-bio-testosterone'),
+    cortisol: val('ath-bio-cortisol'),
+    tsh: val('ath-bio-tsh'),
+  };
+  const hasAnyValue = Object.values(fields).some(v => v !== null);
+  if(!hasAnyValue){ showToast('Enter at least one value first'); return; }
+
+  const { data: existingRows } = await sb.from('biomarkers').select('id').eq('user_id', currentUser.id).eq('date', date).order('created_at', {ascending:false}).limit(1);
+  const existing = existingRows && existingRows[0];
+  const { error } = existing
+    ? await sb.from('biomarkers').update(fields).eq('id', existing.id)
+    : await sb.from('biomarkers').insert({ user_id: currentUser.id, date, ...fields });
+
+  if(error){ showToast('Error: ' + error.message); return; }
+  showToast('Bloodwork saved.');
+  await refreshAndRender('athlete');
+}
+document.getElementById('ath-bio-form').addEventListener('submit', (e)=>{ e.preventDefault(); saveAthleteBiomarkers(); });
 
 async function saveHabits(){
   const date = document.getElementById('habit-date').value;
@@ -1962,6 +2287,121 @@ document.getElementById('food-form').addEventListener('submit', async (e)=>{
 
 document.getElementById('food-date').addEventListener('change', ()=> refreshAndRender(currentStepName));
 
+/* ============ ATHLETE MODE: standalone food log ============ */
+// Maps each sport to a nutrition category used for macro targeting, since the
+// right protein/carb split depends more on demand type than the sport name itself.
+const SPORT_CATEGORY = {
+  running: 'endurance', swimming: 'endurance', cycling: 'endurance', triathlon: 'endurance',
+  soccer: 'team', basketball: 'team', football: 'team', baseball: 'team', hockey: 'team', volleyball: 'team', tennis: 'team',
+  golf: 'general',
+  gymnastics: 'power', weightlifting: 'power', crossfit: 'power',
+  combat: 'combat',
+  other: 'general',
+};
+let athleteSport = 'running';
+let athleteSessionsPerDay = '1';
+let selectedAthFoodPer100 = null;
+
+document.getElementById('ath-food-grams').addEventListener('input', ()=>{
+  if(!selectedAthFoodPer100) return;
+  const grams = parseFloat(document.getElementById('ath-food-grams').value) || 0;
+  const factor = grams / 100;
+  document.getElementById('ath-food-cal').value = Math.round(selectedAthFoodPer100.cal * factor);
+  document.getElementById('ath-food-protein').value = Math.round(selectedAthFoodPer100.protein * factor);
+  document.getElementById('ath-food-carbs').value = Math.round(selectedAthFoodPer100.carbs * factor);
+  document.getElementById('ath-food-fat').value = Math.round(selectedAthFoodPer100.fat * factor);
+});
+
+document.getElementById('ath-food-search-btn').addEventListener('click', async ()=>{
+  const query = document.getElementById('ath-food-name').value.trim();
+  if(!query){ showToast("Type something first, we can't guess what's on your plate"); return; }
+  const resultsBox = document.getElementById('ath-food-search-results');
+  const noteBox = document.getElementById('ath-food-source-note');
+  resultsBox.innerHTML = '<div class="food-result-item">Searching…</div>';
+  resultsBox.classList.remove('hidden');
+  try{
+    const data = await searchUsdaFoods(query);
+    const foods = (data.foods || []).slice(0,6);
+    if(foods.length === 0){
+      resultsBox.innerHTML = '<div class="food-result-item">No matches — try a simpler search term, or enter macros manually.</div>';
+      return;
+    }
+    resultsBox.innerHTML = '';
+    foods.forEach(f=>{
+      const per100 = extractPer100(f);
+      const div = document.createElement('div');
+      div.className = 'food-result-item';
+      div.innerHTML = `
+        <div class="food-result-name">${f.description}</div>
+        <div class="food-result-meta">${Math.round(per100.cal)} kcal · P${Math.round(per100.protein)} C${Math.round(per100.carbs)} F${Math.round(per100.fat)} per 100g${f.brandOwner ? ' · ' + f.brandOwner : ''}</div>
+      `;
+      div.addEventListener('click', ()=>{
+        selectedAthFoodPer100 = per100;
+        document.getElementById('ath-food-name').value = f.description;
+        document.getElementById('ath-food-grams').value = 100;
+        document.getElementById('ath-food-grams').dispatchEvent(new Event('input'));
+        resultsBox.classList.add('hidden');
+        noteBox.textContent = 'Values from USDA FoodData Central, scaled to your serving size — adjust the gram amount or the fields directly if needed.';
+      });
+      resultsBox.appendChild(div);
+    });
+  } catch(e){
+    resultsBox.innerHTML = `<div class="food-result-item">${e.message}. You can still enter macros manually below.</div>`;
+  }
+});
+
+document.getElementById('ath-food-name').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('ath-food-search-btn').click(); }
+});
+document.getElementById('ath-food-name').addEventListener('input', ()=>{
+  selectedAthFoodPer100 = null;
+  document.getElementById('ath-food-source-note').textContent = '';
+});
+
+document.getElementById('ath-food-form').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const val = id => { const v = document.getElementById(id).value; return v === '' ? null : parseFloat(v); };
+  const row = {
+    user_id: currentUser.id,
+    date: document.getElementById('ath-food-date').value,
+    meal_type: document.getElementById('ath-food-meal').value,
+    food_name: document.getElementById('ath-food-name').value.trim(),
+    calories: val('ath-food-cal'),
+    protein_g: val('ath-food-protein'),
+    carbs_g: val('ath-food-carbs'),
+    fat_g: val('ath-food-fat'),
+  };
+  if(!row.food_name){ showToast('Give it a name before it can join the journal'); return; }
+  const { error } = await sb.from('food_logs').insert(row);
+  if(error){ showToast('Error: ' + error.message); return; }
+  showToast('Added! One step closer to your goals.');
+  document.getElementById('ath-food-name').value = '';
+  document.getElementById('ath-food-cal').value = '';
+  document.getElementById('ath-food-protein').value = '';
+  document.getElementById('ath-food-carbs').value = '';
+  document.getElementById('ath-food-fat').value = '';
+  document.getElementById('ath-food-grams').value = 100;
+  document.getElementById('ath-food-source-note').textContent = '';
+  selectedAthFoodPer100 = null;
+  await refreshAndRender('athlete');
+});
+
+document.getElementById('ath-food-date').addEventListener('change', ()=> refreshAndRender('athlete'));
+document.getElementById('ath-sport').addEventListener('change', (e)=>{
+  athleteSport = e.target.value;
+  refreshAndRender('athlete');
+});
+document.getElementById('ath-sessions-per-day').addEventListener('change', (e)=>{
+  athleteSessionsPerDay = e.target.value;
+  refreshAndRender('athlete');
+});
+
+async function deleteAthFoodEntry(id){
+  const { error } = await sb.from('food_logs').delete().eq('id', id);
+  if(error){ showToast('Error: ' + error.message); return; }
+  await refreshAndRender('athlete');
+}
+
 async function deleteFoodEntry(id){
   const { error } = await sb.from('food_logs').delete().eq('id', id);
   if(error){ showToast('Error: ' + error.message); return; }
@@ -2193,6 +2633,164 @@ function renderDiseaseRiskContext(biomarkers){
   }).join('');
 }
 
+/* ============ ATHLETE PERFORMANCE ============ */
+const ATHLETE_RANGES = {
+  hemoglobin:   { low: 13.0, high: 17.5 },  // g/dL, roughly sex-neutral midpoint; flag outliers either direction
+  ferritin:     { low: 30,   high: 300 },   // ng/mL — under 30 is a common, fixable endurance limiter even without anemia
+  ck:           { low: 0,    high: 300 },   // U/L — rough upper bound for a non-post-workout draw
+  testosterone: { low: 300,  high: 1000 },  // ng/dL, total
+  cortisol:     { low: 5,    high: 20 },    // µg/dL, morning draw
+  tsh:          { low: 0.4,  high: 4.0 },   // mIU/L
+};
+
+function computeAthleteBloodworkCards(fields){
+  const cards = [];
+  const hb = fields.hemoglobin, fer = fields.ferritin, ck = fields.ck,
+        t = fields.testosterone, cort = fields.cortisol, tsh = fields.tsh;
+
+  if(hb !== null && hb !== undefined){
+    if(hb < ATHLETE_RANGES.hemoglobin.low){
+      cards.push({severity:'high', title:`Hemoglobin ${hb} g/dL is low`, body:'Low hemoglobin limits oxygen-carrying capacity directly, which shows up as flat pace at the same effort. Prioritize iron-rich foods (red meat, lentils, spinach with vitamin C to boost absorption), get ferritin checked alongside this, and scale back high-volume endurance work until it trends up — training through it tends to drive it lower, not fix it.'});
+    } else if(hb > ATHLETE_RANGES.hemoglobin.high){
+      cards.push({severity:'mid', title:`Hemoglobin ${hb} g/dL is high`, body:'This can be a normal training/altitude adaptation, but persistently high hemoglobin also raises blood viscosity. Make sure you\'re hydrating adequately around training, and mention this to a doctor if it stays elevated.'});
+    } else {
+      cards.push({severity:'good', title:'Hemoglobin is in range', body:'Oxygen-carrying capacity looks solid — no changes needed here.'});
+    }
+  }
+
+  if(fer !== null && fer !== undefined){
+    if(fer < ATHLETE_RANGES.ferritin.low){
+      cards.push({severity:'high', title:`Ferritin ${fer} ng/mL is low`, body:'This is one of the most common, fixable performance limiters — low iron stores hurt endurance capacity even before hemoglobin drops. Add iron-rich foods daily, avoid pairing iron with coffee/tea/calcium (they block absorption), and consider a supplement with your doctor\'s input. Recheck in 8-12 weeks rather than waiting a full quarter.'});
+    } else if(fer > ATHLETE_RANGES.ferritin.high){
+      cards.push({severity:'mid', title:`Ferritin ${fer} ng/mL is high`, body:'Ferritin also rises with inflammation, so this alone isn\'t conclusive — worth pairing with a CRP check and a doctor\'s read before changing anything.'});
+    } else {
+      cards.push({severity:'good', title:'Ferritin is in range', body:'Iron stores look adequate to support your current training load.'});
+    }
+  }
+
+  if(ck !== null && ck !== undefined){
+    if(ck > ATHLETE_RANGES.ck.high){
+      cards.push({severity:'high', title:`CK ${ck} U/L is elevated`, body:'This points to muscle damage outpacing recovery. Take 2-3 lower-intensity or full rest days before your next hard session, prioritize sleep and protein intake, and if this stays high across draws it\'s a signal to build more recovery days into the week rather than pushing through.'});
+    } else {
+      cards.push({severity:'good', title:'CK is within range', body:'Muscle recovery looks on track for your current training load — this is a good marker to recheck the day after your next hard session to see how you respond.'});
+    }
+  }
+
+  if(t !== null && t !== undefined && t < ATHLETE_RANGES.testosterone.low){
+    cards.push({severity:'mid', title:`Testosterone ${t} ng/dL is on the low side`, body:'Low testosterone alongside heavy training volume is a classic sign of under-recovery. Consider a deload week (cut volume 40-50% for 5-7 days), check sleep duration and calorie intake — being underfed relative to training load suppresses this directly — and retest after the deload.'});
+  }
+
+  if(t !== null && t !== undefined && cort !== null && cort !== undefined){
+    if(t >= ATHLETE_RANGES.testosterone.low && cort > ATHLETE_RANGES.cortisol.high){
+      cards.push({severity:'mid', title:'Cortisol is elevated relative to testosterone', body:'A high cortisol with borderline testosterone is an early overtraining pattern — it tends to show up before performance actually drops. Worth a planned deload now rather than waiting for a bad training block to force one.'});
+    }
+  } else if(cort !== null && cort !== undefined && cort > ATHLETE_RANGES.cortisol.high){
+    cards.push({severity:'mid', title:`Morning cortisol ${cort} µg/dL is elevated`, body:'Elevated morning cortisol can reflect training stress, poor sleep, or life stress generally — worth cross-checking with sleep quality and considering a lighter training week if it persists across draws.'});
+  }
+
+  if(tsh !== null && tsh !== undefined){
+    if(tsh > ATHLETE_RANGES.tsh.high){
+      cards.push({severity:'mid', title:`TSH ${tsh} mIU/L is elevated`, body:'This can point to an underactive thyroid, which shows up as unexplained fatigue and slower recovery despite adequate rest. Worth a follow-up with a doctor and a free T3/T4 panel before assuming it\'s just training load.'});
+    } else if(tsh < ATHLETE_RANGES.tsh.low){
+      cards.push({severity:'mid', title:`TSH ${tsh} mIU/L is low`, body:'Worth a follow-up with a doctor and a free T3/T4 panel to rule out an overactive thyroid, which can also affect heart rate and recovery.'});
+    }
+  }
+
+  return cards;
+}
+
+function renderAthletePerformance(biomarkers, listId, emptyId){
+  listId = listId || 'athlete-performance-list';
+  emptyId = emptyId || 'athlete-performance-empty';
+  const latest = biomarkers[biomarkers.length-1];
+  const listEl = document.getElementById(listId);
+  const emptyEl = document.getElementById(emptyId);
+
+  const fields = latest ? {
+    hemoglobin: latest.hemoglobin, ferritin: latest.ferritin, ck: latest.ck,
+    testosterone: latest.testosterone, cortisol: latest.cortisol, tsh: latest.tsh,
+  } : {};
+  const logged = Object.entries(fields).filter(([,v]) => v !== null && v !== undefined && v !== '');
+
+  if(logged.length === 0){
+    emptyEl.classList.remove('hidden');
+    listEl.innerHTML = '';
+    return;
+  }
+  emptyEl.classList.add('hidden');
+
+  renderCardList(computeAthleteBloodworkCards(fields), listId, emptyId);
+}
+
+// Nutrition-side recommendations for the standalone athlete page — flags gaps
+// against training-specific macro targets (protein for recovery, carbs for fuel).
+function computeAthleteNutritionCards(totals, macroTargets){
+  const cards = [];
+  if(!macroTargets || !totals) return cards;
+  const hasAnyFood = totals.cal > 0 || totals.protein > 0 || totals.carbs > 0;
+  if(!hasAnyFood) return cards;
+
+  const proteinPct = macroTargets.protein ? (totals.protein/macroTargets.protein)*100 : null;
+  const carbPct = macroTargets.carbs ? (totals.carbs/macroTargets.carbs)*100 : null;
+  const calPct = macroTargets.calories ? (totals.cal/macroTargets.calories)*100 : null;
+
+  if(proteinPct !== null){
+    if(proteinPct < 80){
+      cards.push({severity:'high', title:`Protein at ${Math.round(proteinPct)}% of today's ${macroTargets.protein}g target`, body:'Under-fueling protein slows muscle repair between sessions. Add a source like chicken, eggs, Greek yogurt, fish, or a protein shake at your next meal.'});
+    } else {
+      cards.push({severity:'good', title:'Protein on track', body:`You're at ${Math.round(proteinPct)}% of today's protein target — good for recovery.`});
+    }
+  }
+  if(carbPct !== null && carbPct < 70){
+    cards.push({severity:'mid', title:`Carbs at ${Math.round(carbPct)}% of today's ${macroTargets.carbs}g target`, body:'Carbs fuel glycogen stores directly. Running low here on a training day means less fuel for your next session — add whole grains, fruit, rice, or starchy vegetables.'});
+  }
+  if(calPct !== null && calPct < 85){
+    cards.push({severity:'mid', title:'Total calories running low for today', body:'Consistent under-eating relative to training load is one of the most common, fixable performance blockers — it shows up as flat testosterone, elevated cortisol, and stalled recovery over time.'});
+  }
+  return cards;
+}
+
+// Always-on guidance for professional-level training load — hydration, sleep,
+// and recovery are the highest-leverage, most commonly under-managed factors
+// at this training volume, regardless of what the bloodwork/food log show.
+function renderAthleteEssentials(sport, sessionsPerDay){
+  const category = SPORT_CATEGORY[sport] || 'general';
+  const essentials = [];
+
+  const hydrationBySport = {
+    endurance: 'Aim for 500-750mg sodium per hour of training in the heat, and weigh in before/after sessions — every kg lost is roughly 1L of fluid to replace.',
+    combat: 'Weight-cutting culture makes chronic under-hydration common in combat sports — rehydrate fully between sessions, not just before weigh-ins.',
+    team: 'Rehydrate between sessions with electrolytes, not just water — sweat losses from repeated sprints add up fast in a single practice.',
+    power: 'Hydration affects strength output less dramatically than endurance, but still track it — even 2% dehydration measurably reduces power output.',
+    general: 'Track fluid loss around sessions and replace with electrolytes, not just plain water.',
+  };
+  essentials.push(`<strong>Hydration:</strong> ${hydrationBySport[category]}`);
+
+  essentials.push(`<strong>Sleep:</strong> 8-10 hours is the evidence-based range for athletes training daily — sleep debt is one of the fastest ways to blunt recovery, raise injury risk, and suppress testosterone.`);
+
+  if(sessionsPerDay === '2' || sessionsPerDay === '3'){
+    essentials.push(`<strong>Between-session recovery:</strong> with multiple sessions a day, prioritize a carb + protein refuel within 30-60 minutes of each session, not just at the end of the day.`);
+  }
+
+  essentials.push(`<strong>Recovery modalities:</strong> contrast showers, compression, and short naps (20-30 min) are well-supported for daily training loads — none of them substitute for the sleep and fueling basics above.`);
+
+  document.getElementById('ath-essentials-list').innerHTML = essentials.map(e => `<div>• ${e}</div>`).join('');
+}
+
+function renderAthletePage(data){
+  const { biomarkers, foodLogs } = data;
+  const { totals, macroTargets } = renderAthleteFoodJournal(foodLogs, currentProfile) || {};
+  renderAthleteEssentials(athleteSport, athleteSessionsPerDay);
+  const latest = biomarkers[biomarkers.length-1];
+  const fields = latest ? {
+    hemoglobin: latest.hemoglobin, ferritin: latest.ferritin, ck: latest.ck,
+    testosterone: latest.testosterone, cortisol: latest.cortisol, tsh: latest.tsh,
+  } : {};
+  const bloodCards = computeAthleteBloodworkCards(fields);
+  const nutritionCards = computeAthleteNutritionCards(totals, macroTargets);
+  renderCardList([...bloodCards, ...nutritionCards], 'ath-recommendations-list', 'ath-recommendations-empty');
+}
+
 /* ============ RECOMMENDED NEXT STEPS ============ */
 // Generic geolocation-based "find a nearby professional" button, reused for
 // both the dietitian and personal trainer suggestions below.
@@ -2376,6 +2974,8 @@ function renderStep(stepName, data){
   const { biomarkers, habits, foodLogs, foodTotalsByDate, macroTargets } = data;
   if(stepName === 'food'){
     renderFoodJournal(foodLogs, macroTargets);
+  } else if(stepName === 'athlete'){
+    renderAthletePage(data);
   } else if(stepName === 'results'){
     // Chart.js needs its canvas visible to size correctly, so the trend
     // chart (and the rest of the results view) only render once this
@@ -2392,6 +2992,7 @@ function renderStep(stepName, data){
     renderBiomarkerInsights(biomarkers);
     renderLifestyleInsights(habits, foodTotalsByDate, macroTargets);
     renderDiseaseRiskContext(biomarkers);
+    renderAthletePerformance(biomarkers);
     renderNextSteps(biomarkers, habits, foodTotalsByDate, macroTargets);
   }
 }
@@ -2495,6 +3096,141 @@ function renderFoodJournal(foodLogs, macroTargets){
     row.querySelector('.food-entry-del').addEventListener('click', ()=> deleteFoodEntry(f.id));
     container.appendChild(row);
   });
+}
+
+/* ============ ATHLETE MODE: macro targets + food journal render ============ */
+// Category-level multipliers and per-kg targets, set at the elite/professional
+// end of published sports-nutrition ranges (ISSN / ACSM / IOC consensus) since
+// this page assumes daily, often multi-session, training — not recreational activity.
+const SPORT_CATEGORY_PROFILE = {
+  endurance: { baseMultiplier: 1.9,  proteinPerKg: 1.7, carbPerKg: 9   },
+  team:      { baseMultiplier: 1.8,  proteinPerKg: 1.8, carbPerKg: 6.5 },
+  power:     { baseMultiplier: 1.7,  proteinPerKg: 2.0, carbPerKg: 5   },
+  combat:    { baseMultiplier: 1.85, proteinPerKg: 2.0, carbPerKg: 5.5 },
+  general:   { baseMultiplier: 1.6,  proteinPerKg: 1.6, carbPerKg: 4   },
+};
+const SESSIONS_MULTIPLIER = { '1': 1.0, '2': 1.15, '3': 1.28 };
+
+function computeAthleteMacroTargets(profile, sport, sessionsPerDay){
+  if(!profile || !profile.weight_lb || !profile.height_ft || !profile.age || !profile.sex) return null;
+  const weightKg = profile.weight_lb / 2.20462;
+  const heightCm = ((profile.height_ft*12) + (profile.height_in||0)) * 2.54;
+  const bmr = profile.sex === 'male'
+    ? 10*weightKg + 6.25*heightCm - 5*profile.age + 5
+    : 10*weightKg + 6.25*heightCm - 5*profile.age - 161;
+
+  const category = SPORT_CATEGORY[sport] || 'general';
+  const profileTargets = SPORT_CATEGORY_PROFILE[category];
+  const sessionsFactor = SESSIONS_MULTIPLIER[sessionsPerDay] || 1.0;
+  const tdee = bmr * profileTargets.baseMultiplier * sessionsFactor;
+
+  const proteinG = weightKg * profileTargets.proteinPerKg;
+  const carbG = weightKg * profileTargets.carbPerKg * sessionsFactor; // extra session = extra glycogen demand
+  const proteinCal = proteinG * 4;
+  const carbCal = carbG * 4;
+  const fatCal = Math.max(tdee - proteinCal - carbCal, tdee * 0.2); // floor fat at 20% of TDEE
+  const fatG = fatCal / 9;
+
+  return {
+    calories: Math.round(proteinCal + carbCal + fatCal),
+    protein: Math.round(proteinG),
+    carbs: Math.round(carbG),
+    fat: Math.round(fatG),
+    category,
+    sport,
+  };
+}
+
+function renderAthleteFoodJournal(foodLogs, profile){
+  const selectedDate = document.getElementById('ath-food-date').value || todayStr();
+  const dayEntries = foodLogs.filter(f => f.date === selectedDate);
+
+  const totals = dayEntries.reduce((acc, f) => {
+    acc.cal += f.calories || 0;
+    acc.protein += f.protein_g || 0;
+    acc.carbs += f.carbs_g || 0;
+    acc.fat += f.fat_g || 0;
+    return acc;
+  }, {cal:0, protein:0, carbs:0, fat:0});
+
+  document.getElementById('ath-total-cal').textContent = Math.round(totals.cal);
+  document.getElementById('ath-total-protein').textContent = Math.round(totals.protein) + 'g';
+  document.getElementById('ath-total-carbs').textContent = Math.round(totals.carbs) + 'g';
+  document.getElementById('ath-total-fat').textContent = Math.round(totals.fat) + 'g';
+
+  const macroTargets = computeAthleteMacroTargets(profile, athleteSport, athleteSessionsPerDay);
+  const noProfileNote = document.getElementById('ath-no-profile-note');
+  const goalModeLabel = document.getElementById('ath-goal-mode-label');
+  const categoryLabelText = {
+    endurance: 'Elite endurance targets — carbs prioritized to fuel training volume.',
+    team: 'Elite team-sport targets — balanced carbs and protein for repeated high-intensity efforts.',
+    power: 'Elite strength/power targets — higher protein to support load and recovery.',
+    combat: 'Elite combat-sport targets — high protein with enough carbs to support hard sessions.',
+    general: 'Professional training targets for your sport.',
+  };
+  const sessionsNote = { '1': '', '2': ' Bumped up for two-a-day training.', '3': ' Bumped up further for 3+ sessions/training camp load.' };
+  goalModeLabel.textContent = macroTargets ? (categoryLabelText[macroTargets.category] || '') + (sessionsNote[athleteSessionsPerDay] || '') : '';
+
+  const setGoalBar = (fillId, targetId, actual, target) => {
+    const fillEl = document.getElementById(fillId);
+    const targetEl = document.getElementById(targetId);
+    if(!target){
+      fillEl.style.width = '0%';
+      targetEl.textContent = '';
+      return;
+    }
+    const pct = Math.min(130, (actual/target)*100);
+    fillEl.style.width = Math.min(100, pct) + '%';
+    fillEl.classList.toggle('over', pct > 100);
+    targetEl.textContent = `of ${Math.round(target)} goal`;
+  };
+
+  if(macroTargets){
+    noProfileNote.classList.add('hidden');
+    setGoalBar('ath-fill-cal', 'ath-target-cal', totals.cal, macroTargets.calories);
+    setGoalBar('ath-fill-protein', 'ath-target-protein', totals.protein, macroTargets.protein);
+    setGoalBar('ath-fill-carbs', 'ath-target-carbs', totals.carbs, macroTargets.carbs);
+    setGoalBar('ath-fill-fat', 'ath-target-fat', totals.fat, macroTargets.fat);
+  } else {
+    noProfileNote.classList.remove('hidden');
+    ['ath-fill-cal','ath-fill-protein','ath-fill-carbs','ath-fill-fat'].forEach(id => document.getElementById(id).style.width = '0%');
+    ['ath-target-cal','ath-target-protein','ath-target-carbs','ath-target-fat'].forEach(id => document.getElementById(id).textContent = '');
+  }
+
+  const container = document.getElementById('ath-food-entries');
+  const emptyEl = document.getElementById('ath-food-empty');
+  container.innerHTML = '';
+
+  if(dayEntries.length === 0){
+    emptyEl.classList.remove('hidden');
+    return { totals, macroTargets };
+  }
+  emptyEl.classList.add('hidden');
+
+  const mealOrder = {breakfast:0, lunch:1, dinner:2, snack:3};
+  dayEntries.sort((a,b) => (mealOrder[a.meal_type]??4) - (mealOrder[b.meal_type]??4));
+
+  dayEntries.forEach(f=>{
+    const row = document.createElement('div');
+    row.className = 'food-entry-row';
+    const metaParts = [
+      f.calories ? `${Math.round(f.calories)} kcal` : null,
+      f.protein_g ? `P ${Math.round(f.protein_g)}g` : null,
+      f.carbs_g ? `C ${Math.round(f.carbs_g)}g` : null,
+      f.fat_g ? `F ${Math.round(f.fat_g)}g` : null,
+    ].filter(Boolean).join(' · ');
+    row.innerHTML = `
+      <div>
+        <div class="food-entry-name">${f.food_name} <span style="font-weight:400;color:var(--sage);font-size:12px;text-transform:capitalize;">— ${f.meal_type}</span></div>
+        <div class="food-entry-meta">${metaParts || 'no macros logged'}</div>
+      </div>
+      <button class="food-entry-del" title="Delete" data-id="${f.id}">×</button>
+    `;
+    row.querySelector('.food-entry-del').addEventListener('click', ()=> deleteAthFoodEntry(f.id));
+    container.appendChild(row);
+  });
+
+  return { totals, macroTargets };
 }
 
 /* ============ INSIGHTS ENGINE ============
