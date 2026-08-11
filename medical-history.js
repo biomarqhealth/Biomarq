@@ -53,6 +53,42 @@ function parseMedicalHistoryText(text){
   return found;
 }
 
+/* Test-name matching used for de-duplication. Text extraction (OCR
+   especially) is noisy — the same test can come out as "Glucose",
+   "Glucose:", "Gluc0se", or with a stray space, across two uploads or even
+   twice in the same document. Comparing normalized strings with a small
+   edit-distance tolerance catches those as the same test without
+   conflating genuinely different tests (e.g. "Glucose" vs "Glucose, Fasting"
+   still match — good — but "Glucose" vs "Sucrose" won't). */
+function normalizeTestName(name){
+  return (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '').trim();
+}
+function levenshteinDistance(a, b){
+  const m = a.length, n = b.length;
+  if(m === 0) return n;
+  if(n === 0) return m;
+  let prev = Array.from({length: n+1}, (_, j) => j);
+  for(let i = 1; i <= m; i++){
+    const curr = [i];
+    for(let j = 1; j <= n; j++){
+      curr[j] = a[i-1] === b[j-1]
+        ? prev[j-1]
+        : 1 + Math.min(prev[j-1], prev[j], curr[j-1]);
+    }
+    prev = curr;
+  }
+  return prev[n];
+}
+function testNamesMatch(a, b){
+  const na = normalizeTestName(a), nb = normalizeTestName(b);
+  if(!na || !nb) return false;
+  if(na === nb) return true;
+  if(na.startsWith(nb) || nb.startsWith(na)) return true; // "glucose" vs "glucosefasting"
+  const shortLen = Math.min(na.length, nb.length);
+  const tolerance = shortLen <= 4 ? 0 : (shortLen <= 8 ? 1 : 2);
+  return levenshteinDistance(na, nb) <= tolerance;
+}
+
 /* Scans for the two most common ways lab reports mark a result as abnormal:
    (1) a value followed by an explicit reference range, where the value
        falls outside it, and (2) an explicit flag word/letter (H, L, HIGH,
@@ -74,6 +110,7 @@ function findOutOfRangeValues(text){
     if(isNaN(value) || isNaN(lo) || isNaN(hi) || lo >= hi) continue;
     if(name.length < 3 || /^\d+$/.test(name)) continue;
     if(value < lo || value > hi){
+      if(found.some(f => testNamesMatch(f.name, name))) continue;
       found.push({ name, value, low: lo, high: hi, direction: value < lo ? 'low' : 'high' });
       count++;
     }
@@ -83,7 +120,6 @@ function findOutOfRangeValues(text){
 
 function findAbnormalFlags(text){
   const found = [];
-  const seen = new Set();
   const lines = text.split('\n');
   // Anchored to "name  number  [unit]  flag" — the standard lab-report row
   // format (e.g. "Glucose  110  H" or "WBC  11.2  HIGH"). Requiring an
@@ -110,9 +146,7 @@ function findAbnormalFlags(text){
     if(rawFlag.length === 1 && rawFlag !== rawFlag.toUpperCase()) return;
     const name = m[1].trim().replace(/\s+/g,' ');
     if(name.length < 3 || /^\d+$/.test(name)) return;
-    const key = name.toLowerCase();
-    if(seen.has(key)) return;
-    seen.add(key);
+    if(found.some(f => testNamesMatch(f.name, name))) return;
     found.push({ name, value: m[2], flag: rawFlag.toUpperCase() });
   });
   return found.slice(0, 20);
@@ -377,12 +411,19 @@ document.addEventListener('click', async (e)=>{
     conditionEntries.forEach(entry => { if(!mergedConditions.some(m => m.key === entry.key)) mergedConditions.push(entry); });
 
     // Same test can easily show up again across re-uploads or overlapping
-    // documents — dedupe by test name (or label+bodyArea for open findings)
-    // against what's already saved, and within this batch too, so saving
-    // twice doesn't pile up repeat entries for the same result.
-    const findingKey = f => f.type === 'open'
-      ? `open:${(f.label||'').toLowerCase().trim()}:${(f.bodyArea||'').toLowerCase().trim()}`
-      : `${f.type}:${(f.name||'').toLowerCase().trim()}`;
+    // documents — dedupe by the actual test identity, not exact string
+    // match, since OCR/extraction reproduces the same test name slightly
+    // differently between uploads (a dropped letter, an extra space, a
+    // trailing colon). testNamesMatch() normalizes and allows small edit
+    // distance so "Glucose" and "Gluc0se" are still recognized as the
+    // same test instead of piling up as two separate findings.
+    const findingIdentity = f => f.type === 'open' ? (f.label || '') : (f.name || '');
+    const findingsMatch = (a, b) => {
+      if(a.type !== b.type) return false;
+      if(!testNamesMatch(findingIdentity(a), findingIdentity(b))) return false;
+      if(a.type === 'open') return (a.bodyArea||'').toLowerCase().trim() === (b.bodyArea||'').toLowerCase().trim();
+      return true;
+    };
     const existingFindings = (currentProfile && currentProfile.medical_history_findings) ? JSON.parse(currentProfile.medical_history_findings) : [];
     const newFindings = [
       ...rangeEntries.map(r=>({type:'range', ...r})),
@@ -390,11 +431,8 @@ document.addEventListener('click', async (e)=>{
       ...openEntries.map(f=>({type:'open', ...f})),
     ];
     const mergedFindings = [...existingFindings];
-    const seenKeys = new Set(existingFindings.map(findingKey));
     newFindings.forEach(f => {
-      const key = findingKey(f);
-      if(seenKeys.has(key)) return;
-      seenKeys.add(key);
+      if(mergedFindings.some(existing => findingsMatch(existing, f))) return;
       mergedFindings.push(f);
     });
 
