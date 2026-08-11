@@ -1864,7 +1864,8 @@ async function saveHabits(){
   };
   // Update today's existing entry instead of inserting a duplicate, since
   // this now runs automatically every time you leave the step.
-  const { data: existingRows } = await sb.from('habits').select('id').eq('user_id', currentUser.id).eq('date', date).order('created_at', {ascending:false}).limit(1);
+  const { data: existingRows, error: lookupError } = await sb.from('habits').select('id').eq('user_id', currentUser.id).eq('date', date).order('created_at', {ascending:false}).limit(1);
+  if(lookupError){ showToast('Error: ' + lookupError.message); return; }
   const existing = existingRows && existingRows[0];
   const { error } = existing
     ? await sb.from('habits').update(row).eq('id', existing.id)
@@ -1992,8 +1993,7 @@ function renderBiomarkerSummary(biomarkers){
 
 function renderHabitSummary(habits){
   const el = document.getElementById('summary-habits');
-  const today = todayStr();
-  const latest = habits.find(h => h.date === today) || habits[habits.length-1];
+  const latest = habits[habits.length-1];
   if(!latest){
     el.innerHTML = `<div class="empty-state" style="padding:12px 0;">No habits logged yet.</div>`;
     return;
