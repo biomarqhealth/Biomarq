@@ -905,6 +905,12 @@
         </div>
         <div id="summary-habits"></div>
       </div>
+      <div class="card">
+        <div class="summary-card-head">
+          <h4>Most concerning</h4>
+        </div>
+        <div id="summary-concerns"></div>
+      </div>
     </div>
 
     <div class="section">
@@ -2108,6 +2114,63 @@ function renderHabitSummary(habits){
   `;
 }
 
+// Pulls the single most concerning signal from each source that has one —
+// out-of-range labs, red-flag habits (smoking, high stress), and any
+// higher-severity condition on file — into one quick-glance card, instead
+// of making someone read every section below to find out what actually
+// needs attention. Reuses the same severity/status logic those fuller
+// sections already use, so this never disagrees with them.
+function renderConcernsSummary(biomarkers, habits){
+  const el = document.getElementById('summary-concerns');
+  const latestBio = biomarkers[biomarkers.length-1];
+  const latestHabit = habits[habits.length-1];
+  const concerns = [];
+
+  if(latestBio){
+    const map = {
+      glucose: latestBio.fasting_glucose, hba1c: latestBio.hba1c, insulin: latestBio.fasting_insulin,
+      hdl: latestBio.hdl, ldl: latestBio.ldl, apob: latestBio.apob, lpa: latestBio.lpa,
+      trig: latestBio.triglycerides, crp: latestBio.crp, homocysteine: latestBio.homocysteine,
+      vitd: latestBio.vitamin_d, systolic: latestBio.systolic, diastolic: latestBio.diastolic, rhr: latestBio.resting_hr
+    };
+    for(const key in map){
+      const status = classifyBiomarker(key, map[key]);
+      if(status === null || status === 'optimal') continue;
+      const copy = BIOMARKER_INSIGHT_COPY[key];
+      if(status === 'high' && copy.high) concerns.push({severity:'high', label:`${copy.label} is high`});
+      else if(status === 'low' && copy.low) concerns.push({severity:'mid', label:`${copy.label} is low`});
+    }
+  }
+
+  if(latestHabit){
+    if(latestHabit.smoking_status === 'current') concerns.push({severity:'high', label:'Currently smoking'});
+    if(latestHabit.stress_level !== null && latestHabit.stress_level !== undefined && latestHabit.stress_level >= 4) concerns.push({severity:'mid', label:'Stress is elevated'});
+    if(latestHabit.sleep_hours !== null && latestHabit.sleep_hours !== undefined && latestHabit.sleep_hours < 6) concerns.push({severity:'mid', label:'Sleep is running short'});
+  }
+
+  if(currentProfile && currentProfile.medical_history){
+    try{
+      const items = JSON.parse(currentProfile.medical_history);
+      items.forEach(i => {
+        const sev = MEDICAL_HISTORY_SEVERITY[i.key] ?? 60;
+        if(sev < 40) concerns.push({severity:'high', label:i.label});
+        else if(sev < 60) concerns.push({severity:'mid', label:i.label});
+      });
+    } catch(e){}
+  }
+
+  if(concerns.length === 0){
+    el.innerHTML = `<div class="empty-state" style="padding:12px 0;">Nothing concerning in your latest data — nice work.</div>`;
+    return;
+  }
+
+  const order = { high: 0, mid: 1 };
+  concerns.sort((a,b) => order[a.severity] - order[b.severity]);
+  const top = concerns.slice(0, 4);
+  el.innerHTML = top.map(c => `<div class="summary-row"><span class="summary-label">${statusDot(c.severity === 'high' ? 'high' : 'low')}${c.label}</span></div>`).join('')
+    + (concerns.length > top.length ? `<div class="field-note" style="margin-top:8px;">+${concerns.length - top.length} more below</div>` : '');
+}
+
 function renderDiseaseRiskContext(biomarkers){
   const latest = biomarkers[biomarkers.length-1];
   const listEl = document.getElementById('disease-risk-list');
@@ -2536,6 +2599,7 @@ function renderStep(stepName, data){
     renderProfileSummary(currentProfile);
     renderBiomarkerSummary(biomarkers);
     renderHabitSummary(habits);
+    renderConcernsSummary(biomarkers, habits);
     if(document.getElementById('trend-details').open){
       renderChart(biomarkers, habits);
     }
