@@ -101,6 +101,8 @@
     font-family:'Sarala',sans-serif;font-size:15px;background:#fff;color:var(--ink);
   }
   .field input:focus, .field select:focus{outline:2px solid var(--pine);outline-offset:1px;border-color:var(--pine);}
+  .field input.missing-core, .field select.missing-core{border-color:var(--danger);background:#FDF3F2;}
+  .field input.missing-core:focus, .field select.missing-core:focus{outline-color:var(--danger);border-color:var(--danger);}
   .auth-toggle{text-align:center;margin-top:18px;font-size:13px;color:var(--sage);}
   .btn-oauth{
     display:flex;align-items:center;justify-content:center;gap:10px;
@@ -512,6 +514,7 @@
       <div id="medhistory-saved-empty" class="field-note">Nothing saved yet — upload a document above to get started.</div>
     </div>
     <div class="card">
+      <div class="field-note" style="margin-bottom:16px;">Boxes outlined in red are still blank and are the ones that actually drive your biological age estimate — everything else on this form is optional context.</div>
       <form id="biomarker-form">
         <div class="form-grid">
           <div class="field full">
@@ -1461,6 +1464,22 @@ const LAB_PARSE_PATTERNS = [
 // used after a medical-record upload to check what's still genuinely missing.
 const CORE_BIOMARKER_IDS = ['bio-glucose','bio-hba1c','bio-insulin','bio-hdl','bio-ldl','bio-apob','bio-lpa','bio-trig','bio-crp','bio-homocysteine','bio-vitd','bio-systolic','bio-diastolic','bio-rhr'];
 
+// Highlights whichever core fields are still blank in red, live, so it's
+// obvious at a glance what's actually missing from the biological age
+// calculation — separate from the optional add-on sections below, which
+// never affect that score.
+function updateMissingCoreHighlights(){
+  CORE_BIOMARKER_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.classList.toggle('missing-core', el.value === '');
+  });
+}
+CORE_BIOMARKER_IDS.forEach(id => {
+  const el = document.getElementById(id);
+  if(el) el.addEventListener('input', updateMissingCoreHighlights);
+});
+
 function parseLabText(text){
   const found = [];
   const lines = text.split('\n').filter(l => l.trim() !== '');
@@ -1857,6 +1876,7 @@ function populateBiomarkersForm(latest){
   setVal('bio-testosterone', latest?.testosterone);
   setVal('bio-cortisol', latest?.cortisol);
   setVal('bio-tsh', latest?.tsh);
+  updateMissingCoreHighlights();
 }
 
 const VITAMIN_LABELS = {
