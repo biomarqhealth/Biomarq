@@ -369,7 +369,11 @@ document.getElementById('medhistory-upload-input').addEventListener('change', as
 
     const conditions = parseMedicalHistoryText(text);
     const outOfRange = findOutOfRangeValues(text);
-    const flagged = findAbnormalFlags(text);
+    // A single abnormal result often gets caught by both scans (e.g. "LDL
+    // 8 (ref 10-30) L" has both a reference range and a flag letter on the
+    // same line) — keep the range version since it carries the actual
+    // bounds, and drop the flag version for any test already captured there.
+    const flagged = findAbnormalFlags(text).filter(f => !outOfRange.some(r => testNamesMatch(r.name, f.name)));
 
     // Only the core biomarkers that actually drive the biological age
     // calculation — check what's still blank after the autofill above, so
@@ -419,10 +423,18 @@ document.addEventListener('click', async (e)=>{
     // same test instead of piling up as two separate findings.
     const findingIdentity = f => f.type === 'open' ? (f.label || '') : (f.name || '');
     const findingsMatch = (a, b) => {
-      if(a.type !== b.type) return false;
-      if(!testNamesMatch(findingIdentity(a), findingIdentity(b))) return false;
-      if(a.type === 'open') return (a.bodyArea||'').toLowerCase().trim() === (b.bodyArea||'').toLowerCase().trim();
-      return true;
+      // "open" findings (imaging/narrative, from the AI path) are a
+      // different kind of thing from a lab value and are only compared
+      // against other "open" findings on the same body area.
+      if(a.type === 'open' || b.type === 'open'){
+        return a.type === 'open' && b.type === 'open'
+          && testNamesMatch(findingIdentity(a), findingIdentity(b))
+          && (a.bodyArea||'').toLowerCase().trim() === (b.bodyArea||'').toLowerCase().trim();
+      }
+      // "range" and "flag" both describe the same kind of thing — a single
+      // abnormal lab value — just caught by different patterns, so the
+      // same test counts as a duplicate across those two types too.
+      return testNamesMatch(findingIdentity(a), findingIdentity(b));
     };
     const existingFindings = (currentProfile && currentProfile.medical_history_findings) ? JSON.parse(currentProfile.medical_history_findings) : [];
     const newFindings = [
