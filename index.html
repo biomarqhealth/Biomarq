@@ -2097,7 +2097,10 @@ function renderBiomarkerSummary(biomarkers){
 
 function renderHabitSummary(habits){
   const el = document.getElementById('summary-habits');
-  const latest = habits[habits.length-1];
+  // Prefer today's entry over whatever sorts last — habit-date is a plain
+  // editable date input with no bounds, so a stray future-dated row would
+  // otherwise sort after today's real entry and mask it indefinitely.
+  const latest = habits.find(h => h.date === todayStr()) || habits[habits.length-1];
   if(!latest){
     el.innerHTML = `<div class="empty-state" style="padding:12px 0;">No habits logged yet.</div>`;
     return;
@@ -2145,7 +2148,7 @@ function renderConcernsSummary(biomarkers, habits){
   if(latestHabit){
     if(latestHabit.smoking_status === 'current') concerns.push({severity:'high', label:'Currently smoking'});
     if(latestHabit.stress_level !== null && latestHabit.stress_level !== undefined && latestHabit.stress_level >= 4) concerns.push({severity:'mid', label:'Stress is elevated'});
-    if(latestHabit.sleep_hours !== null && latestHabit.sleep_hours !== undefined && latestHabit.sleep_hours < 6) concerns.push({severity:'mid', label:'Sleep is running short'});
+    if(latestHabit.sleep_hours !== null && latestHabit.sleep_hours !== undefined && latestHabit.sleep_hours < 7) concerns.push({severity:'mid', label:'Sleep is running short'});
   }
 
   if(currentProfile && currentProfile.medical_history){

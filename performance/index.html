@@ -101,6 +101,8 @@
     font-family:'Sarala',sans-serif;font-size:15px;background:#fff;color:var(--ink);
   }
   .field input:focus, .field select:focus{outline:2px solid var(--pine);outline-offset:1px;border-color:var(--pine);}
+  .field input.missing-core, .field select.missing-core{border-color:var(--danger);background:#FDF3F2;}
+  .field input.missing-core:focus, .field select.missing-core:focus{outline-color:var(--danger);border-color:var(--danger);}
   .field input[type=checkbox]{width:auto;padding:0;vertical-align:middle;accent-color:var(--pine);}
   .auth-toggle{text-align:center;margin-top:18px;font-size:13px;color:var(--sage);}
   .btn-oauth{
@@ -521,6 +523,7 @@
       <div id="medhistory-saved-empty" class="field-note">Nothing saved yet — upload a document above to get started.</div>
     </div>
     <div class="card">
+      <div class="field-note" style="margin-bottom:16px;">Boxes outlined in red are still blank and are the ones that actually drive your biological age estimate — everything else on this form is optional context.</div>
       <form id="biomarker-form">
         <div class="form-grid">
           <div class="field full">
@@ -982,6 +985,12 @@
           <span class="summary-card-arrow">Edit →</span>
         </div>
         <div id="summary-food"></div>
+      </div>
+      <div class="card">
+        <div class="summary-card-head">
+          <h4>Most concerning</h4>
+        </div>
+        <div id="summary-concerns"></div>
       </div>
     </div>
 
@@ -1582,6 +1591,22 @@ const LAB_PARSE_PATTERNS = [
 // still genuinely missing.
 const CORE_BIOMARKER_IDS = ['bio-glucose','bio-hba1c','bio-insulin','bio-hdl','bio-ldl','bio-apob','bio-lpa','bio-trig','bio-crp','bio-homocysteine','bio-vitd','bio-systolic','bio-diastolic','bio-rhr'];
 
+// Highlights whichever core fields are still blank in red, live, so it's
+// obvious at a glance what's actually missing from the biological age
+// calculation — separate from the optional add-on sections below, which
+// never affect that score.
+function updateMissingCoreHighlights(){
+  CORE_BIOMARKER_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.classList.toggle('missing-core', el.value === '');
+  });
+}
+CORE_BIOMARKER_IDS.forEach(id => {
+  const el = document.getElementById(id);
+  if(el) el.addEventListener('input', updateMissingCoreHighlights);
+});
+
 function parseLabText(text){
   const found = [];
   const lines = text.split('\n').filter(l => l.trim() !== '');
@@ -1941,7 +1966,8 @@ async function saveBiomarkers(){
   if(hasAnyValue){
     // Update today's existing entry instead of inserting a duplicate,
     // since this now runs automatically every time you leave the step.
-    const { data: existingRows } = await sb.from('biomarkers').select('id').eq('user_id', currentUser.id).eq('date', date).order('created_at', {ascending:false}).limit(1);
+    const { data: existingRows, error: lookupError } = await sb.from('biomarkers').select('id').eq('user_id', currentUser.id).eq('date', date).order('created_at', {ascending:false}).limit(1);
+    if(lookupError){ showToast('Error: ' + lookupError.message); return; }
     const existing = existingRows && existingRows[0];
     const { error } = existing
       ? await sb.from('biomarkers').update(row).eq('id', existing.id)
@@ -1970,32 +1996,66 @@ async function saveBiomarkers(){
 }
 document.getElementById('biomarker-form').addEventListener('submit', e => e.preventDefault());
 
+// Repopulates the biomarkers form with whatever's already saved for the
+// selected date, so revisiting this step doesn't show a blank form.
+function populateBiomarkersForm(latest){
+  const setVal = (id, v) => { document.getElementById(id).value = (v ?? ''); };
+  setVal('bio-glucose', latest?.fasting_glucose);
+  setVal('bio-hba1c', latest?.hba1c);
+  setVal('bio-insulin', latest?.fasting_insulin);
+  setVal('bio-hdl', latest?.hdl);
+  setVal('bio-ldl', latest?.ldl);
+  setVal('bio-apob', latest?.apob);
+  setVal('bio-lpa', latest?.lpa);
+  setVal('bio-trig', latest?.triglycerides);
+  setVal('bio-crp', latest?.crp);
+  setVal('bio-homocysteine', latest?.homocysteine);
+  setVal('bio-vitd', latest?.vitamin_d);
+  setVal('bio-systolic', latest?.systolic);
+  setVal('bio-diastolic', latest?.diastolic);
+  setVal('bio-rhr', latest?.resting_hr);
+  setVal('bio-psa', latest?.psa);
+  setVal('bio-ca125', latest?.ca125);
+  setVal('bio-cea', latest?.cea);
+  setVal('bio-ca199', latest?.ca199);
+  setVal('bio-afp', latest?.afp);
+  document.getElementById('bio-mcd').value = latest?.mcd_result || '';
+  setVal('bio-hemoglobin', latest?.hemoglobin);
+  setVal('bio-ferritin', latest?.ferritin);
+  setVal('bio-ck', latest?.ck);
+  setVal('bio-testosterone', latest?.testosterone);
+  setVal('bio-cortisol', latest?.cortisol);
+  setVal('bio-tsh', latest?.tsh);
+  updateMissingCoreHighlights();
+}
+
+const STRUGGLE_LABELS = {
+  'perf-struggle-fatigue': 'Fatigue / low energy',
+  'perf-struggle-soreness': 'Muscle soreness that lingers',
+  'perf-struggle-sleep': 'Sleep quality',
+  'perf-struggle-motivation': 'Motivation / mental focus',
+  'perf-struggle-injury': 'Nagging injury or pain',
+  'perf-struggle-recovery': 'Recovery between sessions',
+  'perf-struggle-nutrition': 'Nutrition / fueling consistency',
+  'perf-struggle-focus': 'Focus / mental game on race or game day',
+};
+const PERF_VITAMIN_LABELS = {
+  'perf-vit-multi': 'Multivitamin', 'perf-vit-d': 'Vitamin D', 'perf-vit-omega3': 'Omega-3 / fish oil',
+  'perf-vit-magnesium': 'Magnesium', 'perf-vit-zinc': 'Zinc', 'perf-vit-iron': 'Iron', 'perf-vit-b12': 'B12',
+  'perf-vit-electrolytes': 'Electrolytes', 'perf-vit-creatine': 'Creatine', 'perf-vit-protein': 'Protein powder',
+  'perf-vit-probiotic': 'Probiotic',
+};
+
 async function savePerformance(){
   if(testMode){ showToast("Preview mode — this wouldn't be saved."); return; }
   const date = document.getElementById('perf-date').value;
   const checked = id => document.getElementById(id).checked;
 
-  const struggleLabels = {
-    'perf-struggle-fatigue': 'Fatigue / low energy',
-    'perf-struggle-soreness': 'Muscle soreness that lingers',
-    'perf-struggle-sleep': 'Sleep quality',
-    'perf-struggle-motivation': 'Motivation / mental focus',
-    'perf-struggle-injury': 'Nagging injury or pain',
-    'perf-struggle-recovery': 'Recovery between sessions',
-    'perf-struggle-nutrition': 'Nutrition / fueling consistency',
-    'perf-struggle-focus': 'Focus / mental game on race or game day',
-  };
-  const struggles = Object.entries(struggleLabels).filter(([id]) => checked(id)).map(([,label]) => label);
+  const struggles = Object.entries(STRUGGLE_LABELS).filter(([id]) => checked(id)).map(([,label]) => label);
   const otherStruggle = document.getElementById('perf-struggle-other').value.trim();
   if(otherStruggle) struggles.push(otherStruggle);
 
-  const vitaminLabels = {
-    'perf-vit-multi': 'Multivitamin', 'perf-vit-d': 'Vitamin D', 'perf-vit-omega3': 'Omega-3 / fish oil',
-    'perf-vit-magnesium': 'Magnesium', 'perf-vit-zinc': 'Zinc', 'perf-vit-iron': 'Iron', 'perf-vit-b12': 'B12',
-    'perf-vit-electrolytes': 'Electrolytes', 'perf-vit-creatine': 'Creatine', 'perf-vit-protein': 'Protein powder',
-    'perf-vit-probiotic': 'Probiotic',
-  };
-  const vitamins = Object.entries(vitaminLabels).filter(([id]) => checked(id)).map(([,label]) => label);
+  const vitamins = Object.entries(PERF_VITAMIN_LABELS).filter(([id]) => checked(id)).map(([,label]) => label);
   const otherVit = document.getElementById('perf-vit-other').value.trim();
   if(otherVit) vitamins.push(otherVit);
 
@@ -2014,7 +2074,8 @@ async function savePerformance(){
   };
   // Update today's existing entry instead of inserting a duplicate, since
   // this now runs automatically every time you leave the step.
-  const { data: existingRows } = await sb.from('habits').select('id').eq('user_id', currentUser.id).eq('date', date).order('created_at', {ascending:false}).limit(1);
+  const { data: existingRows, error: lookupError } = await sb.from('habits').select('id').eq('user_id', currentUser.id).eq('date', date).order('created_at', {ascending:false}).limit(1);
+  if(lookupError){ showToast('Error: ' + lookupError.message); return; }
   const existing = existingRows && existingRows[0];
   const { error } = existing
     ? await sb.from('habits').update(row).eq('id', existing.id)
@@ -2024,6 +2085,41 @@ async function savePerformance(){
   await refreshAndRender(currentStepName);
 }
 document.getElementById('performance-form').addEventListener('submit', e => e.preventDefault());
+
+// Repopulates the performance check-in form with whatever's already saved
+// for the selected date, so navigating away and back (or jumping via a
+// step dot) shows your real entry instead of a blank/default form that
+// would silently overwrite it on the next auto-save.
+function populatePerformanceForm(latest){
+  const setVal = (id, v) => { document.getElementById(id).value = (v ?? ''); };
+
+  setVal('perf-rating', latest?.performance_rating ?? 3);
+  document.getElementById('perf-rating-val').textContent = (latest?.performance_rating ?? 3) + ' / 5';
+  setVal('perf-sleep', latest?.sleep_hours ?? 7.5);
+  document.getElementById('perf-sleep-val').textContent = (latest?.sleep_hours ?? 7.5) + ' h';
+  setVal('perf-soreness', latest?.soreness_level ?? 2);
+  document.getElementById('perf-soreness-val').textContent = (latest?.soreness_level ?? 2) + ' / 5';
+  setVal('perf-rpe', latest?.rpe ?? 5);
+  document.getElementById('perf-rpe-val').textContent = (latest?.rpe ?? 5) + ' / 10';
+
+  setVal('perf-water', latest?.water_oz);
+  setVal('perf-notes', latest?.performance_notes);
+  setVal('perf-extra-notes', latest?.extra_notes);
+
+  const savedStruggles = latest?.struggles ? latest.struggles.split('; ') : [];
+  Object.entries(STRUGGLE_LABELS).forEach(([id, label]) => {
+    document.getElementById(id).checked = savedStruggles.includes(label);
+  });
+  const knownStruggles = Object.values(STRUGGLE_LABELS);
+  document.getElementById('perf-struggle-other').value = savedStruggles.filter(s => !knownStruggles.includes(s)).join('; ');
+
+  const savedVitamins = latest?.vitamins ? latest.vitamins.split('; ') : [];
+  Object.entries(PERF_VITAMIN_LABELS).forEach(([id, label]) => {
+    document.getElementById(id).checked = savedVitamins.includes(label);
+  });
+  const knownVitamins = Object.values(PERF_VITAMIN_LABELS);
+  document.getElementById('perf-vit-other').value = savedVitamins.filter(v => !knownVitamins.includes(v)).join('; ');
+}
 
 /* ============ PROFILE + MACRO TARGETS ============ */
 let currentProfile = null; // {sex, age, weight_lb, height_ft, height_in}
@@ -2247,8 +2343,8 @@ async function deleteFoodEntry(id){
 /* ============ LOAD + RENDER DATA ============ */
 async function fetchAllData(){
   const [bioRes, habitRes, foodRes] = await Promise.all([
-    sb.from('biomarkers').select('*').eq('user_id', currentUser.id).order('date', {ascending:true}),
-    sb.from('habits').select('*').eq('user_id', currentUser.id).order('date', {ascending:true}),
+    sb.from('biomarkers').select('*').eq('user_id', currentUser.id).order('date', {ascending:true}).order('created_at', {ascending:true}),
+    sb.from('habits').select('*').eq('user_id', currentUser.id).order('date', {ascending:true}).order('created_at', {ascending:true}),
     sb.from('food_logs').select('*').eq('user_id', currentUser.id).order('created_at', {ascending:true}),
   ]);
   const biomarkers = bioRes.data || [];
@@ -2342,6 +2438,64 @@ function renderHabitSummary(habits){
     ${latest.struggles ? `<div class="field-note" style="margin-top:8px;">Struggling with: ${latest.struggles}</div>` : ''}
     ${latest.vitamins ? `<div class="field-note" style="margin-top:4px;">Taking: ${latest.vitamins}</div>` : ''}
   `;
+}
+
+// Pulls the single most concerning signal from each source that has one —
+// out-of-range labs, red-flag check-in data (low performance rating, high
+// soreness/RPE, short sleep), and any higher-severity condition on file —
+// into one quick-glance card. Reuses the exact same thresholds
+// renderBiomarkerInsights()/renderLifestyleInsights() use below, so this
+// card can never disagree with them.
+function renderConcernsSummary(biomarkers, habits){
+  const el = document.getElementById('summary-concerns');
+  const latestBio = biomarkers[biomarkers.length-1];
+  const latestHabit = habits[habits.length-1];
+  const concerns = [];
+
+  if(latestBio){
+    const map = {
+      glucose: latestBio.fasting_glucose, hba1c: latestBio.hba1c, insulin: latestBio.fasting_insulin,
+      hdl: latestBio.hdl, ldl: latestBio.ldl, apob: latestBio.apob, lpa: latestBio.lpa,
+      trig: latestBio.triglycerides, crp: latestBio.crp, homocysteine: latestBio.homocysteine,
+      vitd: latestBio.vitamin_d, systolic: latestBio.systolic, diastolic: latestBio.diastolic, rhr: latestBio.resting_hr
+    };
+    for(const key in map){
+      const status = classifyBiomarker(key, map[key]);
+      if(status === null || status === 'optimal') continue;
+      const copy = BIOMARKER_INSIGHT_COPY[key];
+      if(status === 'high' && copy.high) concerns.push({severity:'high', label:`${copy.label} is high`});
+      else if(status === 'low' && copy.low) concerns.push({severity:'mid', label:`${copy.label} is low`});
+    }
+  }
+
+  if(latestHabit){
+    if(latestHabit.performance_rating !== null && latestHabit.performance_rating !== undefined && latestHabit.performance_rating <= 2) concerns.push({severity:'mid', label:'Performance rated low'});
+    if(latestHabit.soreness_level !== null && latestHabit.soreness_level !== undefined && latestHabit.soreness_level >= 4) concerns.push({severity:'mid', label:'Soreness is elevated'});
+    if(latestHabit.rpe !== null && latestHabit.rpe !== undefined && latestHabit.rpe >= 9) concerns.push({severity:'mid', label:'Last session was maximal effort'});
+    if(latestHabit.sleep_hours !== null && latestHabit.sleep_hours !== undefined && latestHabit.sleep_hours < 7) concerns.push({severity:'mid', label:'Sleep is running short'});
+  }
+
+  if(currentProfile && currentProfile.medical_history){
+    try{
+      const items = JSON.parse(currentProfile.medical_history);
+      items.forEach(i => {
+        const sev = MEDICAL_HISTORY_SEVERITY[i.key] ?? 60;
+        if(sev < 40) concerns.push({severity:'high', label:i.label});
+        else if(sev < 60) concerns.push({severity:'mid', label:i.label});
+      });
+    } catch(e){}
+  }
+
+  if(concerns.length === 0){
+    el.innerHTML = `<div class="empty-state" style="padding:12px 0;">Nothing concerning in your latest data — nice work.</div>`;
+    return;
+  }
+
+  const order = { high: 0, mid: 1 };
+  concerns.sort((a,b) => order[a.severity] - order[b.severity]);
+  const top = concerns.slice(0, 4);
+  el.innerHTML = top.map(c => `<div class="summary-row"><span class="summary-label">${statusDot(c.severity === 'high' ? 'high' : 'low')}${c.label}</span></div>`).join('')
+    + (concerns.length > top.length ? `<div class="field-note" style="margin-top:8px;">+${concerns.length - top.length} more below</div>` : '');
 }
 
 function renderFoodSummary(foodTotalsByDate, macroTargets){
@@ -3419,9 +3573,13 @@ function renderStep(stepName, data){
   const { biomarkers, habits, foodLogs, foodTotalsByDate, macroTargets } = data;
   if(stepName === 'biomarkers'){
     renderSavedMedicalHistory();
+    const bioDate = document.getElementById('bio-date').value;
+    populateBiomarkersForm(biomarkers.find(b => b.date === bioDate));
   } else if(stepName === 'performance'){
     document.getElementById('food-sport').value = (currentProfile && currentProfile.sport) || 'running';
     document.getElementById('food-sessions-per-day').value = (currentProfile && currentProfile.sessions_per_day) || '1';
+    const perfDate = document.getElementById('perf-date').value;
+    populatePerformanceForm(habits.find(h => h.date === perfDate));
   } else if(stepName === 'food'){
     renderFoodJournal(foodLogs, macroTargets);
   } else if(stepName === 'results'){
@@ -3432,6 +3590,7 @@ function renderStep(stepName, data){
     renderProfileSummary(currentProfile);
     renderBiomarkerSummary(biomarkers);
     renderHabitSummary(habits);
+    renderConcernsSummary(biomarkers, habits);
     renderFoodSummary(foodTotalsByDate, macroTargets);
     if(document.getElementById('trend-details').open){
       renderChart(biomarkers, habits, foodTotalsByDate, macroTargets);
@@ -4029,6 +4188,6 @@ function renderHistory(biomarkers, habits){
   });
 }
 </script>
-<script src="medical-history.js"></script>
+<script src="medical-history-performance.js"></script>
 </body>
 </html>

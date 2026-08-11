@@ -53,40 +53,22 @@ function parseMedicalHistoryText(text){
   return found;
 }
 
-/* Test-name matching used for de-duplication. Text extraction (OCR
-   especially) is noisy — the same test can come out as "Glucose",
-   "Glucose:", "Gluc0se", or with a stray space, across two uploads or even
-   twice in the same document. Comparing normalized strings with a small
-   edit-distance tolerance catches those as the same test without
-   conflating genuinely different tests (e.g. "Glucose" vs "Glucose, Fasting"
-   still match — good — but "Glucose" vs "Sucrose" won't). */
+/* Test-name matching used for de-duplication. Normalizes away punctuation,
+   spacing, and case so "Glucose", "Glucose:", and "Glucose  " all count as
+   the same test (that formatting noise was the actual cause of duplicate
+   entries in practice). Deliberately NOT fuzzy/edit-distance matching —
+   that was tried and reverted, because it silently merged clinically
+   distinct tests that happen to differ by one character, e.g. "Cortisol
+   AM" vs "Cortisol PM", or "Vitamin B12" vs "Vitamin B6": a false merge
+   there means a real abnormal reading quietly disappears, which is worse
+   than an occasional un-deduped near-duplicate surviving review. */
 function normalizeTestName(name){
   return (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '').trim();
-}
-function levenshteinDistance(a, b){
-  const m = a.length, n = b.length;
-  if(m === 0) return n;
-  if(n === 0) return m;
-  let prev = Array.from({length: n+1}, (_, j) => j);
-  for(let i = 1; i <= m; i++){
-    const curr = [i];
-    for(let j = 1; j <= n; j++){
-      curr[j] = a[i-1] === b[j-1]
-        ? prev[j-1]
-        : 1 + Math.min(prev[j-1], prev[j], curr[j-1]);
-    }
-    prev = curr;
-  }
-  return prev[n];
 }
 function testNamesMatch(a, b){
   const na = normalizeTestName(a), nb = normalizeTestName(b);
   if(!na || !nb) return false;
-  if(na === nb) return true;
-  if(na.startsWith(nb) || nb.startsWith(na)) return true; // "glucose" vs "glucosefasting"
-  const shortLen = Math.min(na.length, nb.length);
-  const tolerance = shortLen <= 4 ? 0 : (shortLen <= 8 ? 1 : 2);
-  return levenshteinDistance(na, nb) <= tolerance;
+  return na === nb;
 }
 
 /* Scans for the two most common ways lab reports mark a result as abnormal:
@@ -460,11 +442,18 @@ document.addEventListener('click', async (e)=>{
     } else {
       currentProfile = { medical_history: JSON.stringify(mergedConditions), medical_history_findings: JSON.stringify(mergedFindings) };
     }
+    const totalChecked = conditionEntries.length + newFindings.length;
     const totalSaved = (mergedConditions.length - existingConditions.length) + (mergedFindings.length - existingFindings.length);
-    const skippedNote = totalSaved < (conditionEntries.length + newFindings.length) ? ' (some were already on file and skipped as duplicates)' : '';
-    document.getElementById('medhistory-upload-status').innerHTML = totalSaved > 0
-      ? `<div class="field-note" style="margin-top:12px;color:var(--good);">Saved ${totalSaved} item${totalSaved>1?'s':''} to your profile${skippedNote}. This now feeds into your Disease risk context and Next steps on the results page.</div>`
-      : `<div class="field-note" style="margin-top:12px;">Everything you checked was already on file — nothing new to save.</div>`;
+    const skippedNote = totalSaved > 0 && totalSaved < totalChecked ? ' (some were already on file and skipped as duplicates)' : '';
+    let statusMsg;
+    if(totalSaved > 0){
+      statusMsg = `<div class="field-note" style="margin-top:12px;color:var(--good);">Saved ${totalSaved} item${totalSaved>1?'s':''} to your profile${skippedNote}. This now feeds into your Disease risk context and Next steps on the results page.</div>`;
+    } else if(totalChecked === 0){
+      statusMsg = `<div class="field-note" style="margin-top:12px;">Nothing was checked, so nothing was saved.</div>`;
+    } else {
+      statusMsg = `<div class="field-note" style="margin-top:12px;">Everything you checked was already on file — nothing new to save.</div>`;
+    }
+    document.getElementById('medhistory-upload-status').innerHTML = statusMsg;
     renderSavedMedicalHistory();
     showToast('Medical history saved.');
   }
