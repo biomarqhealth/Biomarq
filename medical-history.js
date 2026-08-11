@@ -85,20 +85,35 @@ function findAbnormalFlags(text){
   const found = [];
   const seen = new Set();
   const lines = text.split('\n');
-  const wordFlag = /\b(HIGH|LOW|ABNORMAL|CRITICAL)\b/i;
-  const letterFlag = /(^|\s)([HLA])(\s|$)/; // case-sensitive on purpose — lowercase h/l/a are too common to be reliable
+  // Anchored to "name  number  [unit]  flag" — the standard lab-report row
+  // format (e.g. "Glucose  110  H" or "WBC  11.2  HIGH"). Requiring an
+  // actual numeric result attached to the flag, rather than just matching
+  // the flag word/letter anywhere on the line, is what stops this from
+  // flagging ordinary prose like "high stress" or "low back pain" or a
+  // line that happens to start with "A ..." as an abnormal lab value.
+  // The unit group is lazy (*?) on purpose: greedy would happily eat into
+  // "HIGH" itself (backtracking down to "HIG" + flag "H"), silently
+  // truncating the flag word — lazy tries consuming nothing first, so it
+  // only eats real unit text like "mg/dL" sitting before the flag.
+  const rowPattern = /^([A-Za-z][A-Za-z0-9 \-\/,\.]{2,40}?)[\s:]+(\d+\.?\d*)\s*[A-Za-z\/%µ]*?\s*[\(\[]?\s*(HIGH|LOW|ABNORMAL|CRITICAL|H|L|A)\)?\]?\s*$/i;
   lines.forEach(line=>{
     const trimmed = line.trim();
     if(trimmed.length < 4 || trimmed.length > 140) return;
-    const wm = trimmed.match(wordFlag);
-    const lm = trimmed.match(letterFlag);
-    if(!wm && !lm) return;
-    const nameMatch = trimmed.match(/^([A-Za-z][A-Za-z0-9 \-\/,\.]{2,40}?)\s+[\d\.]/);
-    const name = nameMatch ? nameMatch[1].trim() : trimmed.slice(0, 40);
+    const m = trimmed.match(rowPattern);
+    if(!m) return;
+    const rawFlag = m[3];
+    // Word flags (HIGH/LOW/ABNORMAL/CRITICAL) are fine case-insensitively —
+    // anchored to a name+number they're specific enough. Single-letter
+    // flags (H/L/A) stay uppercase-only, same as the original intent:
+    // lowercase single letters are too common to trust even when a number
+    // happens to precede them.
+    if(rawFlag.length === 1 && rawFlag !== rawFlag.toUpperCase()) return;
+    const name = m[1].trim().replace(/\s+/g,' ');
+    if(name.length < 3 || /^\d+$/.test(name)) return;
     const key = name.toLowerCase();
     if(seen.has(key)) return;
     seen.add(key);
-    found.push({ name, flag: wm ? wm[1].toUpperCase() : lm[2] });
+    found.push({ name, value: m[2], flag: rawFlag.toUpperCase() });
   });
   return found.slice(0, 20);
 }
@@ -213,7 +228,7 @@ function renderMedHistoryReview({ conditions = [], outOfRange = [], flagged = []
   const flaggedHtml = flagged.length ? `
     <div class="field-note" style="margin:12px 0 6px;font-weight:600;">Results marked with a flag (H/L/High/Low/Abnormal)</div>
     <div id="medhistory-review-flagged" style="display:flex;flex-direction:column;gap:8px;font-size:13px;margin-bottom:12px;">
-      ${flagged.map(f => `<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" checked data-name="${f.name}" data-flag="${f.flag}"> ${f.name} — flagged ${f.flag}</label>`).join('')}
+      ${flagged.map(f => `<label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" checked data-name="${f.name}" data-flag="${f.flag}" data-value="${f.value||''}"> ${f.name}${f.value ? `: ${f.value}` : ''} — flagged ${f.flag}</label>`).join('')}
     </div>
   ` : '';
 
@@ -352,7 +367,7 @@ document.addEventListener('click', async (e)=>{
     const rangeEntries = rangeChecks.map(cb => ({ name: cb.dataset.name, value: cb.dataset.value, low: cb.dataset.low, high: cb.dataset.high, direction: cb.dataset.direction }));
 
     const flaggedChecks = Array.from(document.querySelectorAll('#medhistory-review-flagged input[type=checkbox]:checked'));
-    const flaggedEntries = flaggedChecks.map(cb => ({ name: cb.dataset.name, flag: cb.dataset.flag }));
+    const flaggedEntries = flaggedChecks.map(cb => ({ name: cb.dataset.name, flag: cb.dataset.flag, value: cb.dataset.value || null }));
 
     const openChecks = Array.from(document.querySelectorAll('#medhistory-review-open input[type=checkbox]:checked'));
     const openEntries = openChecks.map(cb => ({ label: cb.dataset.label, bodyArea: cb.dataset.bodyarea, severity: cb.dataset.severity, note: cb.dataset.note }));
@@ -361,12 +376,27 @@ document.addEventListener('click', async (e)=>{
     const mergedConditions = [...existingConditions];
     conditionEntries.forEach(entry => { if(!mergedConditions.some(m => m.key === entry.key)) mergedConditions.push(entry); });
 
+    // Same test can easily show up again across re-uploads or overlapping
+    // documents — dedupe by test name (or label+bodyArea for open findings)
+    // against what's already saved, and within this batch too, so saving
+    // twice doesn't pile up repeat entries for the same result.
+    const findingKey = f => f.type === 'open'
+      ? `open:${(f.label||'').toLowerCase().trim()}:${(f.bodyArea||'').toLowerCase().trim()}`
+      : `${f.type}:${(f.name||'').toLowerCase().trim()}`;
     const existingFindings = (currentProfile && currentProfile.medical_history_findings) ? JSON.parse(currentProfile.medical_history_findings) : [];
-    const mergedFindings = [...existingFindings,
+    const newFindings = [
       ...rangeEntries.map(r=>({type:'range', ...r})),
       ...flaggedEntries.map(f=>({type:'flag', ...f})),
       ...openEntries.map(f=>({type:'open', ...f})),
     ];
+    const mergedFindings = [...existingFindings];
+    const seenKeys = new Set(existingFindings.map(findingKey));
+    newFindings.forEach(f => {
+      const key = findingKey(f);
+      if(seenKeys.has(key)) return;
+      seenKeys.add(key);
+      mergedFindings.push(f);
+    });
 
     const { error } = await sb.from('profiles').upsert({
       user_id: currentUser.id,
@@ -380,8 +410,11 @@ document.addEventListener('click', async (e)=>{
     } else {
       currentProfile = { medical_history: JSON.stringify(mergedConditions), medical_history_findings: JSON.stringify(mergedFindings) };
     }
-    const totalSaved = conditionEntries.length + rangeEntries.length + flaggedEntries.length + openEntries.length;
-    document.getElementById('medhistory-upload-status').innerHTML = `<div class="field-note" style="margin-top:12px;color:var(--good);">Saved ${totalSaved} item${totalSaved>1?'s':''} to your profile. This now feeds into your Disease risk context and Next steps on the results page.</div>`;
+    const totalSaved = (mergedConditions.length - existingConditions.length) + (mergedFindings.length - existingFindings.length);
+    const skippedNote = totalSaved < (conditionEntries.length + newFindings.length) ? ' (some were already on file and skipped as duplicates)' : '';
+    document.getElementById('medhistory-upload-status').innerHTML = totalSaved > 0
+      ? `<div class="field-note" style="margin-top:12px;color:var(--good);">Saved ${totalSaved} item${totalSaved>1?'s':''} to your profile${skippedNote}. This now feeds into your Disease risk context and Next steps on the results page.</div>`
+      : `<div class="field-note" style="margin-top:12px;">Everything you checked was already on file — nothing new to save.</div>`;
     renderSavedMedicalHistory();
     showToast('Medical history saved.');
   }
