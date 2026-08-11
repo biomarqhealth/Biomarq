@@ -1800,7 +1800,8 @@ async function saveBiomarkers(){
 
   const hasAnyValue = Object.keys(row).some(k => k !== 'user_id' && k !== 'date' && row[k] !== null);
   if(hasAnyValue){
-    const { data: existingRows } = await sb.from('biomarkers').select('id').eq('user_id', currentUser.id).eq('date', date).order('created_at', {ascending:false}).limit(1);
+    const { data: existingRows, error: lookupError } = await sb.from('biomarkers').select('id').eq('user_id', currentUser.id).eq('date', date).order('created_at', {ascending:false}).limit(1);
+    if(lookupError){ showToast('Error: ' + lookupError.message); return; }
     const existing = existingRows && existingRows[0];
     const { error } = existing
       ? await sb.from('biomarkers').update(row).eq('id', existing.id)
@@ -1826,16 +1827,49 @@ async function saveBiomarkers(){
 }
 document.getElementById('biomarker-form').addEventListener('submit', e => e.preventDefault());
 
+// Same idea as populateHabitsForm(): repopulate from what's already saved
+// for the selected date so revisiting this step doesn't show a blank form.
+function populateBiomarkersForm(latest){
+  const setVal = (id, v) => { document.getElementById(id).value = (v ?? ''); };
+  setVal('bio-glucose', latest?.fasting_glucose);
+  setVal('bio-hba1c', latest?.hba1c);
+  setVal('bio-insulin', latest?.fasting_insulin);
+  setVal('bio-hdl', latest?.hdl);
+  setVal('bio-ldl', latest?.ldl);
+  setVal('bio-apob', latest?.apob);
+  setVal('bio-lpa', latest?.lpa);
+  setVal('bio-trig', latest?.triglycerides);
+  setVal('bio-crp', latest?.crp);
+  setVal('bio-homocysteine', latest?.homocysteine);
+  setVal('bio-vitd', latest?.vitamin_d);
+  setVal('bio-systolic', latest?.systolic);
+  setVal('bio-diastolic', latest?.diastolic);
+  setVal('bio-rhr', latest?.resting_hr);
+  setVal('bio-psa', latest?.psa);
+  setVal('bio-ca125', latest?.ca125);
+  setVal('bio-cea', latest?.cea);
+  setVal('bio-ca199', latest?.ca199);
+  setVal('bio-afp', latest?.afp);
+  document.getElementById('bio-mcd').value = latest?.mcd_result || '';
+  setVal('bio-hemoglobin', latest?.hemoglobin);
+  setVal('bio-ferritin', latest?.ferritin);
+  setVal('bio-ck', latest?.ck);
+  setVal('bio-testosterone', latest?.testosterone);
+  setVal('bio-cortisol', latest?.cortisol);
+  setVal('bio-tsh', latest?.tsh);
+}
+
+const VITAMIN_LABELS = {
+  'habit-vit-multi': 'Multivitamin', 'habit-vit-d': 'Vitamin D', 'habit-vit-omega3': 'Omega-3 / fish oil',
+  'habit-vit-magnesium': 'Magnesium', 'habit-vit-b12': 'B12', 'habit-vit-probiotic': 'Probiotic',
+  'habit-vit-creatine': 'Creatine', 'habit-vit-nad': 'NAD+ precursor (NR/NMN)',
+};
+
 async function saveHabits(){
   const date = document.getElementById('habit-date').value;
   const checked = id => document.getElementById(id).checked;
 
-  const vitaminLabels = {
-    'habit-vit-multi': 'Multivitamin', 'habit-vit-d': 'Vitamin D', 'habit-vit-omega3': 'Omega-3 / fish oil',
-    'habit-vit-magnesium': 'Magnesium', 'habit-vit-b12': 'B12', 'habit-vit-probiotic': 'Probiotic',
-    'habit-vit-creatine': 'Creatine', 'habit-vit-nad': 'NAD+ precursor (NR/NMN)',
-  };
-  const vitamins = Object.entries(vitaminLabels).filter(([id]) => checked(id)).map(([,label]) => label);
+  const vitamins = Object.entries(VITAMIN_LABELS).filter(([id]) => checked(id)).map(([,label]) => label);
   const otherVit = document.getElementById('habit-vit-other').value.trim();
   if(otherVit) vitamins.push(otherVit);
 
@@ -1875,6 +1909,50 @@ async function saveHabits(){
   await refreshAndRender(currentStepName);
 }
 document.getElementById('habit-form').addEventListener('submit', e => e.preventDefault());
+
+// Repopulates the habits form with whatever's already saved for the
+// selected date, so navigating away and back (or jumping via a step dot)
+// shows your real entry instead of a blank/default form that would
+// silently overwrite it on the next auto-save.
+function populateHabitsForm(latest){
+  const setVal = (id, v) => { document.getElementById(id).value = (v ?? ''); };
+
+  setVal('habit-sleep', latest?.sleep_hours ?? 7.5);
+  document.getElementById('habit-sleep-val').textContent = (latest?.sleep_hours ?? 7.5) + ' h';
+  setVal('habit-sleep-quality', latest?.sleep_quality ?? 3);
+  document.getElementById('habit-sleep-quality-val').textContent = (latest?.sleep_quality ?? 3) + ' / 5';
+  setVal('habit-screen-time', latest?.screen_time_before_bed);
+
+  setVal('habit-exercise', latest?.exercise_minutes ?? 30);
+  document.getElementById('habit-exercise-val').textContent = (latest?.exercise_minutes ?? 30) + ' m';
+  document.getElementById('habit-exercise-type').value = latest?.exercise_type || 'mixed';
+  setVal('habit-steps', latest?.steps);
+  setVal('habit-outdoors', latest?.time_outdoors);
+
+  setVal('habit-water', latest?.water_oz);
+  setVal('habit-caffeine', latest?.caffeine_servings);
+  setVal('habit-alcohol', latest?.alcohol_drinks);
+
+  const savedVitamins = latest?.vitamins ? latest.vitamins.split('; ') : [];
+  Object.entries(VITAMIN_LABELS).forEach(([id, label]) => {
+    document.getElementById(id).checked = savedVitamins.includes(label);
+  });
+  const knownLabels = Object.values(VITAMIN_LABELS);
+  document.getElementById('habit-vit-other').value = savedVitamins.filter(v => !knownLabels.includes(v)).join('; ');
+
+  document.getElementById('habit-smoking-status').value = latest?.smoking_status || 'never';
+  document.getElementById('habit-smoking-status').dispatchEvent(new Event('change'));
+  setVal('habit-cigarettes-per-day', latest?.cigarettes_per_day);
+  setVal('habit-years-since-quit', latest?.years_since_quit);
+  document.getElementById('habit-vaping-status').value = latest?.vaping_status || 'never';
+
+  setVal('habit-stress', latest?.stress_level ?? 3);
+  document.getElementById('habit-stress-val').textContent = (latest?.stress_level ?? 3) + ' / 5';
+  setVal('habit-mood', latest?.mood ?? 3);
+  document.getElementById('habit-mood-val').textContent = (latest?.mood ?? 3) + ' / 5';
+  setVal('habit-meditation', latest?.meditation_minutes);
+  document.getElementById('habit-notes').value = latest?.notes || '';
+}
 
 /* ============ PROFILE + MACRO TARGETS ============ */
 let currentProfile = null;
@@ -1927,8 +2005,8 @@ document.getElementById('profile-form').addEventListener('submit', e => e.preven
 /* ============ LOAD + RENDER DATA ============ */
 async function fetchAllData(){
   const [bioRes, habitRes] = await Promise.all([
-    sb.from('biomarkers').select('*').eq('user_id', currentUser.id).order('date', {ascending:true}),
-    sb.from('habits').select('*').eq('user_id', currentUser.id).order('date', {ascending:true}),
+    sb.from('biomarkers').select('*').eq('user_id', currentUser.id).order('date', {ascending:true}).order('created_at', {ascending:true}),
+    sb.from('habits').select('*').eq('user_id', currentUser.id).order('date', {ascending:true}).order('created_at', {ascending:true}),
   ]);
   const biomarkers = bioRes.data || [];
   const habits = habitRes.data || [];
@@ -2428,6 +2506,11 @@ function renderStep(stepName, data){
   const { biomarkers, habits } = data;
   if(stepName === 'biomarkers'){
     renderSavedMedicalHistory();
+    const bioDate = document.getElementById('bio-date').value;
+    populateBiomarkersForm(biomarkers.find(b => b.date === bioDate));
+  } else if(stepName === 'habits'){
+    const habitDate = document.getElementById('habit-date').value;
+    populateHabitsForm(habits.find(h => h.date === habitDate));
   } else if(stepName === 'results'){
     renderHero(biomarkers, habits);
     renderProfileSummary(currentProfile);
