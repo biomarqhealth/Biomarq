@@ -1800,7 +1800,7 @@ async function saveBiomarkers(){
 
   const hasAnyValue = Object.keys(row).some(k => k !== 'user_id' && k !== 'date' && row[k] !== null);
   if(hasAnyValue){
-    const { data: existingRows, error: lookupError } = await sb.from('biomarkers').select('id').eq('user_id', currentUser.id).eq('date', date).order('id', {ascending:false}).limit(1);
+    const { data: existingRows, error: lookupError } = await sb.from('biomarkers').select('id').eq('user_id', currentUser.id).eq('date', date).order('created_at', {ascending:false}).limit(1);
     if(lookupError){ showToast('Error: ' + lookupError.message); return; }
     const existing = existingRows && existingRows[0];
     const { error } = existing
@@ -1898,7 +1898,7 @@ async function saveHabits(){
   };
   // Update today's existing entry instead of inserting a duplicate, since
   // this now runs automatically every time you leave the step.
-  const { data: existingRows, error: lookupError } = await sb.from('habits').select('id').eq('user_id', currentUser.id).eq('date', date).order('id', {ascending:false}).limit(1);
+  const { data: existingRows, error: lookupError } = await sb.from('habits').select('id').eq('user_id', currentUser.id).eq('date', date).order('created_at', {ascending:false}).limit(1);
   if(lookupError){ showToast('Error: ' + lookupError.message); return; }
   const existing = existingRows && existingRows[0];
   const { error } = existing
@@ -2005,8 +2005,8 @@ document.getElementById('profile-form').addEventListener('submit', e => e.preven
 /* ============ LOAD + RENDER DATA ============ */
 async function fetchAllData(){
   const [bioRes, habitRes] = await Promise.all([
-    sb.from('biomarkers').select('*').eq('user_id', currentUser.id).order('date', {ascending:true}).order('id', {ascending:true}),
-    sb.from('habits').select('*').eq('user_id', currentUser.id).order('date', {ascending:true}).order('id', {ascending:true}),
+    sb.from('biomarkers').select('*').eq('user_id', currentUser.id).order('date', {ascending:true}).order('created_at', {ascending:true}),
+    sb.from('habits').select('*').eq('user_id', currentUser.id).order('date', {ascending:true}).order('created_at', {ascending:true}),
   ]);
   const biomarkers = bioRes.data || [];
   const habits = habitRes.data || [];
