@@ -386,9 +386,6 @@
       <span id="auth-toggle-text">Don't have an account?</span>
       <button id="auth-toggle-btn">Sign up</button>
     </div>
-    <div class="auth-toggle" style="margin-top:8px;">
-      <button id="test-mode-btn">Skip sign-in — preview only, nothing saves</button>
-    </div>
   </div>
 </div>
 
@@ -1478,13 +1475,6 @@ async function initApp(user){
   showStep('profile');
 }
 
-let testMode = false;
-document.getElementById('test-mode-btn').addEventListener('click', async ()=>{
-  testMode = true;
-  await initApp({ id: 'preview-mode-no-auth', email: 'Preview mode — nothing saves' });
-  showToast("You're in preview mode. Nothing you enter will be saved.");
-});
-
 /* ============ WIZARD NAVIGATION ============ */
 const STEP_ORDER = ['profile', 'biomarkers', 'performance', 'food', 'results'];
 let currentStepName = 'profile';
@@ -1926,7 +1916,6 @@ document.getElementById('perf-rpe').addEventListener('input', e=>{
 
 /* ============ FORM SUBMISSIONS ============ */
 async function saveBiomarkers(){
-  if(testMode){ showToast("Preview mode — this wouldn't be saved."); return; }
   const val = id => { const v = document.getElementById(id).value; return v === '' ? null : parseFloat(v); };
   const date = document.getElementById('bio-date').value;
   const row = {
@@ -2047,7 +2036,6 @@ const PERF_VITAMIN_LABELS = {
 };
 
 async function savePerformance(){
-  if(testMode){ showToast("Preview mode — this wouldn't be saved."); return; }
   const date = document.getElementById('perf-date').value;
   const checked = id => document.getElementById(id).checked;
 
@@ -2157,7 +2145,6 @@ document.getElementById('profile-goal').addEventListener('change', (e)=>{
 });
 
 async function saveProfile(){
-  if(testMode){ showToast("Preview mode — this wouldn't be saved."); return; }
   const row = {
     user_id: currentUser.id,
     sex: document.getElementById('profile-sex').value,
@@ -2288,7 +2275,6 @@ document.getElementById('food-form').addEventListener('submit', async (e)=>{
     fat_g: val('food-fat'),
   };
   if(!row.food_name){ showToast('Give it a name before it can join the journal'); return; }
-  if(testMode){ showToast("Preview mode — this wouldn't be saved."); return; }
   const { error } = await sb.from('food_logs').insert(row);
   if(error){ showToast('Error: ' + error.message); return; }
   showToast('Added! One step closer to your goals.');
@@ -2320,7 +2306,6 @@ const SPORT_CATEGORY = {
 document.getElementById('food-sport').addEventListener('change', async (e)=>{
   const sport = e.target.value;
   if(currentProfile) currentProfile.sport = sport; else currentProfile = { sport };
-  if(testMode){ await refreshAndRender(currentStepName); return; }
   const { error } = await sb.from('profiles').upsert({ user_id: currentUser.id, sport });
   if(error){ showToast('Error: ' + error.message); return; }
   await refreshAndRender(currentStepName);
@@ -2328,7 +2313,6 @@ document.getElementById('food-sport').addEventListener('change', async (e)=>{
 document.getElementById('food-sessions-per-day').addEventListener('change', async (e)=>{
   const sessionsPerDay = e.target.value;
   if(currentProfile) currentProfile.sessions_per_day = sessionsPerDay; else currentProfile = { sessions_per_day: sessionsPerDay };
-  if(testMode){ await refreshAndRender(currentStepName); return; }
   const { error } = await sb.from('profiles').upsert({ user_id: currentUser.id, sessions_per_day: sessionsPerDay });
   if(error){ showToast('Error: ' + error.message); return; }
   await refreshAndRender(currentStepName);
